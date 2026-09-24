@@ -42,6 +42,8 @@ const routes: Record<string, () => Response | Promise<Response>> = {
   "https://lovable-old.example/": () => html(LOVABLE_OLD),
   "https://lovable.dev/opengraph-image-p98pqg.png": () => image(90_000),
   "https://guarded.example/": () => html(CHALLENGE, 403, { "cf-mitigated": "challenge" }),
+  "https://heavy.example/": () => html(GOOD.replaceAll("good.example", "heavy.example")),
+  "https://heavy.example/og.png": () => image(900_000),
 };
 
 export function fakeDeps(): Deps {

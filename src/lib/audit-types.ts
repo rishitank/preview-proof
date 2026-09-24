@@ -30,6 +30,7 @@ export type AuditData = {
   ogType: string | null;
   twitterCard: string | null;
   twitterTitle: string | null;
+  twitterDescription: string | null;
   twitterImage: string | null;
   ogImageCheck: ImageCheck | null;
   bodyTextLength: number;

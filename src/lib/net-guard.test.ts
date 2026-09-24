@@ -144,3 +144,28 @@ describe("validateTargetUrl", () => {
     expect(code("https://[2606:4700:4700::1111]/")).toBe("ok");
   });
 });
+
+describe("IPv6 special ranges and malformed DNS answers", () => {
+  it.each([
+    "2001:2::1", // benchmarking
+    "2001:10::1", // ORCHID
+    "2001:20::1", // ORCHIDv2
+    "3fff::1", // documentation 3fff::/20
+    "5f00::1", // SRv6 SIDs
+    "::ffff:0:a00:1", // IPv4-translated
+    "4000::1", // outside global unicast
+  ])("treats %s as unsafe", (addr) => {
+    expect(isPrivateIPv6(addr)).toBe(true);
+  });
+
+  it("still allows ordinary public IPv6", () => {
+    expect(isPrivateIPv6("2606:4700:4700::1111")).toBe(false);
+    expect(isPrivateIPv6("2a00:1450:4009:81f::200e")).toBe(false);
+  });
+
+  it("rejects DNS answers that aren't IP addresses", () => {
+    expect(areResolvedAddressesSafe(["1.2.3.4.5"])).toBe(false);
+    expect(areResolvedAddressesSafe(["93.184.216.34", "not-an-ip"])).toBe(false);
+    expect(areResolvedAddressesSafe(["93.184.216.34"])).toBe(true);
+  });
+});

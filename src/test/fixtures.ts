@@ -27,6 +27,7 @@ export function perfectAudit(overrides: Partial<AuditData> = {}): AuditData {
     ogType: "website",
     twitterCard: "summary_large_image",
     twitterTitle: null,
+    twitterDescription: null,
     twitterImage: null,
     ogImageCheck: { ok: true, status: 200, contentType: "image/png", bytes: 120_000 },
     bodyTextLength: 900,

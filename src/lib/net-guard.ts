@@ -116,15 +116,14 @@ export function isPrivateIPv6(host: string): boolean {
   if (g0 === 0x64 && g1 === 0xff9b && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0) {
     return isPrivateIPv4(v4From(g6, g7)); // NAT64 well-known prefix
   }
-  if (g0 === 0x64 && g1 === 0xff9b && g2 === 1) return true; // local-use NAT64
-  if (g0 === 0x100 && g1 === 0 && g2 === 0 && g3 === 0) return true; // discard-only
-  if (g0 === 0x2001 && g1 === 0) return true; // Teredo tunnelling
+  // Allowlist, not blocklist: only global unicast (2000::/3) can be public. This rules out
+  // unique-local, link-local, site-local, multicast, discard-only, local-use NAT64, SRv6 SIDs,
+  // IPv4-translated and every range IANA assigns in future outside 2000::/3.
+  if ((g0 & 0xe000) !== 0x2000) return true;
+  if (g0 === 0x2001 && g1 < 0x200) return true; // 2001::/23 IETF: Teredo, benchmarking, ORCHID
   if (g0 === 0x2001 && g1 === 0xdb8) return true; // documentation
+  if (g0 === 0x3fff && g1 < 0x1000) return true; // documentation 3fff::/20
   if (g0 === 0x2002) return isPrivateIPv4(v4From(g1, g2)); // 6to4 embeds an IPv4 address
-  if ((g0 & 0xfe00) === 0xfc00) return true; // unique local fc00::/7
-  if ((g0 & 0xffc0) === 0xfe80) return true; // link-local fe80::/10
-  if ((g0 & 0xffc0) === 0xfec0) return true; // site-local (deprecated)
-  if ((g0 & 0xff00) === 0xff00) return true; // multicast
   return false;
 }
 
@@ -136,7 +135,10 @@ export function isIpLiteral(host: string): boolean {
 /** True only when there is at least one address and every address is public. */
 export function areResolvedAddressesSafe(addresses: string[]): boolean {
   if (addresses.length === 0) return false;
-  return addresses.every((a) => !isPrivateIPv4(a) && !isPrivateIPv6(a));
+  // Anything that doesn't parse as an IP address (a malformed DNS answer) is unsafe.
+  return addresses.every((a) =>
+    parseIPv4(a) !== null ? !isPrivateIPv4(a) : parseIPv6(a) !== null && !isPrivateIPv6(a),
+  );
 }
 
 /**
