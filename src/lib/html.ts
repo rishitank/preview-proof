@@ -23,6 +23,10 @@ export type ParsedHtml = {
   twitterImage: string | null;
   bodyTextLength: number;
   emptyRootDiv: boolean;
+  /** Signs of Lovable's legacy Vite template (author meta or its default share image). */
+  builtWithLovable: boolean;
+  /** og:image is a builder's stock placeholder rather than the site's own image. */
+  ogImageIsPlaceholder: boolean;
 };
 
 /** Default titles that tools and templates ship with. Compared case-insensitively and exactly. */
@@ -136,6 +140,22 @@ export function absoluteHttpUrl(base: string, href: string | null): string | nul
 
 const isAbsoluteHttp = (v: string) => /^https?:\/\//i.test(v);
 
+const hostOf = (u: string) => {
+  try {
+    return new URL(u).hostname;
+  } catch {
+    return "";
+  }
+};
+
+/** Stock share images that builders ship in their templates. */
+export function isPlaceholderImage(url: string | null): boolean {
+  if (!url) return false;
+  return /lovable\.dev\/opengraph-image|lovable\.dev\/og-image|placeholder\.(png|jpg|svg)|\/vite\.svg$/i.test(
+    url,
+  );
+}
+
 /** A JS app shell: an empty mount element (or empty body) plus a script bundle that fills it in. */
 function looksLikeClientRenderedShell(rawHtml: string, bodyText: string): boolean {
   const withoutComments = rawHtml.replace(/<!--[\s\S]*?-->/g, "");
@@ -212,6 +232,11 @@ export function parseHtml(rawHtml: string, finalUrl: string): ParsedHtml {
     bodyTextLength: bodyText.length,
     // Short text alone isn't enough: a small static page is not a JS shell.
     emptyRootDiv: bodyText.length < 160 && looksLikeClientRenderedShell(rawHtml, bodyText),
+    builtWithLovable:
+      /\.lovable\.app$/i.test(hostOf(finalUrl)) ||
+      (meta(metas, ["author"]) ?? "").toLowerCase() === "lovable" ||
+      isPlaceholderImage(ogImageRaw),
+    ogImageIsPlaceholder: isPlaceholderImage(ogImageRaw),
   };
 }
 
@@ -244,4 +269,20 @@ export function looksLikeHtml(contentType: string | null, bodyStart: string): bo
     if (type !== "text/plain" && type !== "application/octet-stream" && type !== "") return false;
   }
   return /<(!doctype\s+html|html|head|body|meta|title)\b/i.test(bodyStart.slice(0, 4096));
+}
+
+/**
+ * Recognises anti-bot interstitials (Cloudflare "Just a moment...", Vercel checkpoint, DDoS-Guard,
+ * PerimeterX and similar). Auditing one of these would grade the firewall page, not the site.
+ */
+export function isBotChallenge(status: number, headers: Headers, html: string): boolean {
+  if ((headers.get("cf-mitigated") ?? "").toLowerCase() === "challenge") return true;
+  if (status !== 403 && status !== 429 && status !== 503) return false;
+  const head = html.slice(0, 64 * 1024);
+  return (
+    /<title>\s*(just a moment|attention required|checking your browser|vercel security checkpoint|ddos-guard|access denied|please wait)/i.test(
+      head,
+    ) ||
+    /(_cf_chl_opt|challenge-platform|cf-chl-|__vercel_challenge|px-captcha|ddos-guard)/i.test(head)
+  );
 }

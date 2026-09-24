@@ -6,7 +6,7 @@
  * tested without touching the internet.
  */
 import type { AuditData, AuditResponse, ImageCheck } from "./audit-types";
-import { decodeBody, looksLikeHtml, parseHtml, isGenericTitle } from "./html";
+import { decodeBody, isBotChallenge, isGenericTitle, looksLikeHtml, parseHtml } from "./html";
 import { areResolvedAddressesSafe, isIpLiteral, validateTargetUrl } from "./net-guard";
 
 export const MAX_BYTES = 2 * 1024 * 1024;
@@ -336,6 +336,17 @@ export async function runAudit(rawUrl: string, deps: Deps = defaultDeps()): Prom
   const responseTimeMs = deps.now() - started;
   const contentType = res.headers.get("content-type");
   const html = decodeBody(body.bytes, contentType);
+
+  if (isBotChallenge(res.status, res.headers, html)) {
+    return {
+      ok: false,
+      error: {
+        code: "bot_blocked",
+        message:
+          "This site's firewall showed our checker a bot challenge instead of the page, so we can't see what sharing bots see. Verified crawlers like Twitterbot, Slackbot and facebookexternalhit are usually let through, so your real previews may be fine.",
+      },
+    };
+  }
 
   if (!looksLikeHtml(contentType, html)) {
     const type = contentType?.split(";")[0]?.trim() || "something that isn't a web page";

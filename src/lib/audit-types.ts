@@ -35,12 +35,21 @@ export type AuditData = {
   bodyTextLength: number;
   emptyRootDiv: boolean;
   spaTrap: boolean;
+  builtWithLovable: boolean;
+  ogImageIsPlaceholder: boolean;
   htmlBytes: number;
   truncated: boolean;
 };
 
 export type AuditError = {
-  code: "invalid_url" | "blocked_host" | "blocked_port" | "timeout" | "fetch_failed" | "not_html";
+  code:
+    | "invalid_url"
+    | "blocked_host"
+    | "blocked_port"
+    | "timeout"
+    | "fetch_failed"
+    | "not_html"
+    | "bot_blocked";
   message: string;
 };
 
