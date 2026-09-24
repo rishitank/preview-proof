@@ -20,10 +20,12 @@ export type AuditData = {
   noindex: boolean;
   lang: string | null;
   favicon: string | null;
+  faviconDeclared: boolean;
   h1Count: number;
   ogTitle: string | null;
   ogDescription: string | null;
   ogImage: string | null;
+  ogImageRelative: boolean;
   ogUrl: string | null;
   ogType: string | null;
   twitterCard: string | null;
@@ -38,16 +40,8 @@ export type AuditData = {
 };
 
 export type AuditError = {
-  code:
-    | "invalid_url"
-    | "blocked_host"
-    | "blocked_port"
-    | "timeout"
-    | "fetch_failed"
-    | "not_html";
+  code: "invalid_url" | "blocked_host" | "blocked_port" | "timeout" | "fetch_failed" | "not_html";
   message: string;
 };
 
-export type AuditResponse =
-  | { ok: true; data: AuditData }
-  | { ok: false; error: AuditError };
+export type AuditResponse = { ok: true; data: AuditData } | { ok: false; error: AuditError };
