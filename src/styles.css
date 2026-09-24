@@ -39,6 +39,16 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
+  /* Text-safe tones for small text on a tinted background (WCAG AA 4.5:1 in both themes). */
+  --color-destructive-strong: var(--destructive-strong);
+  --color-warning-strong: var(--warning-strong);
+  /* Each platform's own UI colours, used only to make the preview cards look like the real thing. */
+  --color-platform-google-link: var(--platform-google-link);
+  --color-platform-x-link: var(--platform-x-link);
+  --color-platform-slack-link: var(--platform-slack-link);
+  --color-platform-imessage-bubble: var(--platform-imessage-bubble);
+  --color-platform-imessage-text: var(--platform-imessage-text);
+  --color-platform-imessage-media: var(--platform-imessage-media);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -64,7 +74,8 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.22 0.03 190);
 
-  --primary: oklch(0.55 0.12 187);
+  /* L 0.51: white text on primary is 5.0:1 (WCAG AA for normal text). */
+  --primary: oklch(0.51 0.12 187);
   --primary-foreground: oklch(0.99 0.01 190);
 
   --secondary: oklch(0.95 0.02 190);
@@ -85,14 +96,25 @@
   --success: oklch(0.62 0.13 155);
   --success-foreground: oklch(0.99 0.01 155);
 
+  --destructive-strong: oklch(0.505 0.19 27.5);
+  --warning-strong: oklch(0.473 0.125 46.2);
+
+  --platform-google-link: #1a0dab;
+  --platform-x-link: #0b6cb0;
+  --platform-slack-link: #1264a3;
+  --platform-imessage-bubble: #e9e9eb;
+  --platform-imessage-text: #111111;
+  --platform-imessage-media: #d7d7db;
+
   --border: oklch(0.9 0.015 190);
   --input: oklch(0.9 0.015 190);
-  --ring: oklch(0.55 0.12 187);
+  --ring: oklch(0.51 0.12 187);
 
   --gradient-hero:
     radial-gradient(1000px 500px at 12% -10%, oklch(0.87 0.09 187 / 0.45), transparent 60%),
     radial-gradient(800px 460px at 92% 0%, oklch(0.9 0.11 80 / 0.4), transparent 62%);
-  --gradient-brand: linear-gradient(135deg, oklch(0.55 0.12 187), oklch(0.66 0.13 150));
+  /* Both ends keep white button text at 4.85:1 or better. */
+  --gradient-brand: linear-gradient(135deg, oklch(0.51 0.12 187), oklch(0.53 0.13 150));
 
   --shadow-soft: 0 1px 2px oklch(0.3 0.04 190 / 0.05), 0 8px 24px oklch(0.3 0.04 190 / 0.06);
   --shadow-lift: 0 2px 6px oklch(0.3 0.04 190 / 0.07), 0 18px 48px oklch(0.3 0.04 190 / 0.12);
@@ -129,9 +151,19 @@
   --warning-foreground: oklch(0.2 0.04 60);
   --success: oklch(0.7 0.13 155);
   --success-foreground: oklch(0.18 0.03 155);
+  --destructive-strong: oklch(0.808 0.103 19.6);
+  --warning-strong: oklch(0.924 0.115 95.7);
+  --platform-google-link: #8ab4f8;
+  --platform-x-link: #4aa8f0;
+  --platform-slack-link: #7cc3ff;
+  --platform-imessage-bubble: var(--secondary);
+  --platform-imessage-text: var(--foreground);
+  --platform-imessage-media: var(--muted);
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 16%);
   --ring: oklch(0.72 0.12 187);
+  /* Dark button text on this gradient is 7.9:1 or better. */
+  --gradient-brand: linear-gradient(135deg, oklch(0.72 0.12 187), oklch(0.74 0.13 155));
 
   --glass-border: oklch(1 0 0 / 0.1);
   --glass-highlight: oklch(1 0 0 / 0.06);

@@ -12,4 +12,17 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  vite: {
+    // Pre-bundle the client deps Vite otherwise discovers late on a cold dev start. Discovering
+    // them triggers a full page reload, which wipes anything typed before hydration and made the
+    // browser tests flaky on a clean CI cache.
+    optimizeDeps: {
+      include: [
+        "@tanstack/router-core",
+        "@tanstack/router-core/isServer",
+        "@tanstack/router-core/ssr/client",
+        "seroval",
+      ],
+    },
+  },
 });
