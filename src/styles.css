@@ -1,6 +1,12 @@
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
+/* Self-hosted fonts: no render-blocking third-party stylesheet, no font requests to Google. */
+@import "@fontsource/space-grotesk/latin-500.css";
+@import "@fontsource/space-grotesk/latin-700.css";
+@import "@fontsource/dm-sans/latin-400.css";
+@import "@fontsource/dm-sans/latin-500.css";
+@import "@fontsource/dm-sans/latin-700.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -83,16 +89,21 @@
   --input: oklch(0.9 0.015 190);
   --ring: oklch(0.55 0.12 187);
 
-  --gradient-hero: radial-gradient(
-      1000px 500px at 12% -10%,
-      oklch(0.87 0.09 187 / 0.45),
-      transparent 60%
-    ),
+  --gradient-hero:
+    radial-gradient(1000px 500px at 12% -10%, oklch(0.87 0.09 187 / 0.45), transparent 60%),
     radial-gradient(800px 460px at 92% 0%, oklch(0.9 0.11 80 / 0.4), transparent 62%);
   --gradient-brand: linear-gradient(135deg, oklch(0.55 0.12 187), oklch(0.66 0.13 150));
 
   --shadow-soft: 0 1px 2px oklch(0.3 0.04 190 / 0.05), 0 8px 24px oklch(0.3 0.04 190 / 0.06);
   --shadow-lift: 0 2px 6px oklch(0.3 0.04 190 / 0.07), 0 18px 48px oklch(0.3 0.04 190 / 0.12);
+
+  --glass-border: oklch(1 0 0 / 0.65);
+  --glass-highlight: oklch(1 0 0 / 0.7);
+  --grid-line: oklch(0.55 0.05 190 / 0.07);
+  --orb-1: oklch(0.8 0.11 187 / 0.55);
+  --orb-2: oklch(0.88 0.13 80 / 0.5);
+  --orb-3: oklch(0.8 0.12 150 / 0.4);
+  color-scheme: light;
 }
 
 .dark {
@@ -121,6 +132,16 @@
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 16%);
   --ring: oklch(0.72 0.12 187);
+
+  --glass-border: oklch(1 0 0 / 0.1);
+  --glass-highlight: oklch(1 0 0 / 0.06);
+  --grid-line: oklch(1 0 0 / 0.05);
+  --orb-1: oklch(0.5 0.1 187 / 0.35);
+  --orb-2: oklch(0.55 0.1 70 / 0.22);
+  --orb-3: oklch(0.5 0.11 150 / 0.28);
+  --shadow-soft: 0 1px 2px oklch(0 0 0 / 0.3), 0 8px 24px oklch(0 0 0 / 0.25);
+  --shadow-lift: 0 2px 6px oklch(0 0 0 / 0.3), 0 18px 48px oklch(0 0 0 / 0.35);
+  color-scheme: dark;
 }
 
 @layer base {
@@ -144,9 +165,68 @@
 }
 
 @utility surface-card {
-  background-color: var(--color-surface);
+  background-color: color-mix(in oklab, var(--color-surface) 72%, transparent);
   color: var(--color-surface-foreground);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+/* Frosted panel for hero, summary and toolbar surfaces. */
+@utility glass {
+  background-color: color-mix(in oklab, var(--color-surface) 58%, transparent);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    var(--shadow-lift);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+}
+
+@utility bg-grid {
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse 70% 55% at 50% 0%, black 40%, transparent 100%);
+}
+
+@utility shimmer {
+  background: linear-gradient(
+    100deg,
+    var(--color-muted) 30%,
+    color-mix(in oklab, var(--color-surface) 80%, transparent) 50%,
+    var(--color-muted) 70%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
 }

@@ -1,17 +1,35 @@
+import { useEffect } from "react";
+import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
+
 export function ScoreRing({ score }: { score: number }) {
+  const clamped = Math.max(0, Math.min(100, score));
   const radius = 52;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference * (1 - Math.max(0, Math.min(100, score)) / 100);
   const tone =
-    score >= 80
+    clamped >= 80
       ? "var(--color-success)"
-      : score >= 50
+      : clamped >= 50
         ? "var(--color-warning)"
         : "var(--color-destructive)";
 
+  const still = useReducedMotion();
+  const progress = useMotionValue(still ? clamped : 0);
+  const offset = useTransform(progress, (v) => circumference * (1 - v / 100));
+  const shown = useTransform(progress, (v) => Math.round(v));
+
+  useEffect(() => {
+    if (still) {
+      progress.set(clamped);
+      return;
+    }
+    const controls = animate(progress, clamped, { duration: 1.1, ease: [0.16, 1, 0.3, 1] });
+    return () => controls.stop();
+  }, [clamped, still, progress]);
+
   return (
-    <div className="relative size-32 shrink-0">
-      <svg viewBox="0 0 120 120" className="size-full -rotate-90">
+    <div className="relative size-36 shrink-0">
+      <span className="sr-only">{`Score: ${clamped} out of 100`}</span>
+      <svg viewBox="0 0 120 120" className="size-full -rotate-90" aria-hidden>
         <circle
           cx="60"
           cy="60"
@@ -20,7 +38,7 @@ export function ScoreRing({ score }: { score: number }) {
           stroke="var(--color-border)"
           strokeWidth="10"
         />
-        <circle
+        <motion.circle
           cx="60"
           cy="60"
           r={radius}
@@ -29,12 +47,13 @@ export function ScoreRing({ score }: { score: number }) {
           strokeWidth="10"
           strokeLinecap="round"
           strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          style={{ transition: "stroke-dashoffset 900ms cubic-bezier(.16,1,.3,1)" }}
+          style={{ strokeDashoffset: offset, filter: `drop-shadow(0 0 6px ${tone})` }}
         />
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-display text-3xl font-bold leading-none">{score}</span>
+      <div aria-hidden className="absolute inset-0 flex flex-col items-center justify-center">
+        <motion.span className="font-display text-4xl font-bold leading-none tabular-nums">
+          {shown}
+        </motion.span>
         <span className="mt-1 text-[11px] uppercase tracking-widest text-muted-foreground">
           out of 100
         </span>

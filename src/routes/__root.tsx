@@ -10,7 +10,10 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
+import displayFont from "@fontsource/space-grotesk/files/space-grotesk-latin-700-normal.woff2?url";
+import bodyFont from "@fontsource/dm-sans/files/dm-sans-latin-400-normal.woff2?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { themeBootScript } from "../components/ThemeToggle";
 
 function NotFoundComponent() {
   return (
@@ -77,6 +80,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "color-scheme", content: "light dark" },
+      { name: "theme-color", content: "#f7f5ee" },
       { title: "PreviewProof" },
       {
         name: "description",
@@ -86,18 +91,22 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
+    scripts: [{ children: themeBootScript }],
     links: [
       {
         rel: "stylesheet",
         href: appCss,
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      // Preload the two faces used above the fold so text doesn't reflow when they arrive.
       {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap",
+        rel: "preload",
+        href: displayFont,
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous",
       },
+      { rel: "preload", href: bodyFont, as: "font", type: "font/woff2", crossOrigin: "anonymous" },
     ],
   }),
   shellComponent: RootShell,
@@ -108,7 +117,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
