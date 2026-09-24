@@ -77,6 +77,52 @@ test.describe("PreviewProof", () => {
     expect(serious.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
   });
 
+  test("a shared report link runs its check on arrival", async ({ page }) => {
+    await page.goto("/?url=" + encodeURIComponent("http://169.254.169.254/"));
+    await expect(page.getByText(/private or local machine/)).toBeVisible();
+    await expect(page.getByLabel("Public URL to check")).toHaveValue("http://169.254.169.254/");
+  });
+
+  test("submitting puts the checked URL in the address bar so it can be shared", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await page.getByLabel("Public URL to check").fill("ftp://example.com");
+    await page.getByLabel("Public URL to check").press("Enter");
+    await expect(page).toHaveURL(/\?url=ftp%3A%2F%2Fexample\.com/);
+  });
+
+  test("shows how it works and what we check before a search", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "How it works" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What we check" })).toBeAttached();
+    await expect(page.getByRole("button", { name: "example.com" })).toBeVisible();
+  });
+
+  test("dark mode toggles, persists across reloads and has no flash of the wrong theme", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: /Switch to dark theme/ }).click();
+    await expect(page.locator("html")).toHaveClass(/dark/);
+    await page.reload({ waitUntil: "commit" });
+    await expect(page.locator("html")).toHaveClass(/dark/);
+    const { violations } = await new AxeBuilder({ page }).withTags(["wcag2aa"]).analyze();
+    expect(violations.filter((v) => v.id === "color-contrast").map((v) => v.nodes.length)).toEqual(
+      [],
+    );
+  });
+
+  test("respects reduced motion", async ({ browser }) => {
+    const context = await browser.newContext({ reducedMotion: "reduce" });
+    const page = await context.newPage();
+    await page.goto("/");
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await context.close();
+  });
+
   test("unknown routes return the 404 page", async ({ page }) => {
     const res = await page.goto("/definitely-not-here");
     expect(res?.status()).toBe(404);

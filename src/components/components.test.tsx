@@ -137,6 +137,6 @@ describe("FixList", () => {
 describe("ScoreRing", () => {
   it("shows the score as text for screen readers", () => {
     render(<ScoreRing score={73} />);
-    expect(screen.getByText("73")).toBeTruthy();
+    expect(screen.getByText("Score: 73 out of 100")).toBeTruthy();
   });
 });

@@ -59,6 +59,26 @@ describe("analyse", () => {
     expect(a.score).toBeLessThan(100);
   });
 
+  it("flags a template's stock share image", () => {
+    const a = analyse(
+      perfectAudit({
+        ogImage: "https://lovable.dev/opengraph-image-p98pqg.png",
+        ogImageIsPlaceholder: true,
+      }),
+    );
+    expect(ids(a)).toContain("og-image-placeholder");
+  });
+
+  it("gives an older Lovable app the upgrade-to-SSR fix at lower severity", () => {
+    const lovable = analyse(perfectAudit({ spaTrap: true, builtWithLovable: true }));
+    const spa = lovable.fixes.find((f) => f.id === "spa")!;
+    expect(spa.severity).toBe("important");
+    expect(spa.prompt).toMatch(/TanStack Start/);
+    expect(spa.why).toMatch(/verified crawlers/);
+    const generic = analyse(perfectAudit({ spaTrap: true })).fixes.find((f) => f.id === "spa")!;
+    expect(generic.severity).toBe("critical");
+  });
+
   it("does not double-report a broken image as heavy or relative", () => {
     const a = analyse(
       perfectAudit({
