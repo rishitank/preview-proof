@@ -1,7 +1,10 @@
 import type { Analysis, Fix } from "./analysis";
 import type { AuditData } from "./audit-types";
 
-/** Every fix's HTML merged into one <head> block, keeping one copy of each tag. */
+/**
+ * Every head fix's HTML merged into one <head> block, keeping one copy of each tag.
+ * Body and <html> changes (headings, lang) are left out: they don't belong in the head.
+ */
 export function combinedSnippet(fixes: Fix[]): string {
   const seen = new Set<string>();
   const tagKey = (line: string) => {
@@ -15,6 +18,7 @@ export function combinedSnippet(fixes: Fix[]): string {
   };
   const lines: string[] = [];
   for (const fix of fixes) {
+    if ((fix.placement ?? "head") !== "head") continue;
     for (const line of fix.snippet.split("\n")) {
       const t = line.trim();
       if (!t || t.startsWith("<!--") || t.endsWith("-->")) continue;
@@ -39,7 +43,7 @@ export function reportMarkdown(d: AuditData, a: Analysis, checkedAt = new Date()
   out.push(`# PreviewProof report: ${d.finalUrl}`);
   out.push("");
   out.push(`- Score: **${a.score}/100**`);
-  out.push(`- HTTP ${d.status}, first response in ${d.responseTimeMs} ms`);
+  out.push(`- HTTP ${d.status}, server responded in ${d.responseTimeMs} ms`);
   out.push(`- Checked: ${checkedAt.toISOString().slice(0, 16).replace("T", " ")} UTC`);
   out.push("");
   if (a.fixes.length) {
@@ -50,9 +54,12 @@ export function reportMarkdown(d: AuditData, a: Analysis, checkedAt = new Date()
       out.push("");
       out.push(f.why);
       out.push("");
-      out.push("```html");
+      // A fence longer than any backtick run inside the snippet, so it can't be closed early.
+      const longest = Math.max(2, ...(f.snippet.match(/`+/g) ?? []).map((r) => r.length));
+      const fence = "`".repeat(longest + 1);
+      out.push(`${fence}html`);
       out.push(f.snippet);
-      out.push("```");
+      out.push(fence);
       out.push("");
       out.push(`> Prompt: ${f.prompt}`);
     }

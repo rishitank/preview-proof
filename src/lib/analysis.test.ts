@@ -167,3 +167,53 @@ describe("esc", () => {
     expect(esc(`<a href="x">&</a>`)).toBe("&lt;a href=&quot;x&quot;&gt;&amp;&lt;/a&gt;");
   });
 });
+
+describe("review fixes", () => {
+  it("flags a redirect with no destination, with nothing to paste", () => {
+    const a = analyse(perfectAudit({ status: 301 }));
+    const fix = a.fixes.find((f) => f.id === "status")!;
+    expect(fix.title).toMatch(/redirects nowhere \(301\)/);
+    expect(fix.placement).toBe("none");
+    expect(a.passed.join()).not.toMatch(/Page loads fine/);
+  });
+
+  it("doesn't call a small X card the large format", () => {
+    const a = analyse(perfectAudit({ twitterCard: "summary", ogImage: null, ogImageCheck: null }));
+    expect(a.passed).toContain("X card type set (summary)");
+    expect(a.passed).not.toContain("X card set to the large image format");
+  });
+
+  it("marks body and <html> fixes so they aren't pasted into the head", () => {
+    const a = analyse(perfectAudit({ h1Count: 0, lang: null }));
+    expect(a.fixes.find((f) => f.id === "h1")!.placement).toBe("body");
+    expect(a.fixes.find((f) => f.id === "lang")!.placement).toBe("html");
+  });
+
+  it("trims a long description on a word boundary and pads a short one with guidance", () => {
+    const long = analyse(perfectAudit({ description: "word ".repeat(50).trim() }));
+    const longSnippet = long.fixes.find((f) => f.id === "description-length")!.snippet;
+    expect(longSnippet).toMatch(/content="(word )+word…"/);
+    const short = analyse(perfectAudit({ description: "Tiny." }));
+    expect(short.fixes.find((f) => f.id === "description-length")!.snippet).toContain(
+      "Tiny. [add who it's for",
+    );
+  });
+
+  it("uses no em dashes in any user-facing text", () => {
+    const a = analyse(
+      perfectAudit({
+        title: null,
+        description: null,
+        twitterCard: "summary",
+        status: 500,
+        h1Count: 0,
+        lang: null,
+        favicon: null,
+        canonical: null,
+        noindex: true,
+      }),
+    );
+    const text = JSON.stringify(a);
+    expect(text).not.toContain("—");
+  });
+});

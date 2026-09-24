@@ -3,6 +3,9 @@ import { isGenericTitle } from "./html";
 
 export type Severity = "critical" | "important" | "nice";
 
+/** Where a fix's snippet goes. "none" means there is nothing to paste (a server-side change). */
+export type Placement = "head" | "body" | "html" | "none";
+
 export type Fix = {
   id: string;
   severity: Severity;
@@ -10,6 +13,8 @@ export type Fix = {
   why: string;
   snippet: string;
   prompt: string;
+  /** Defaults to "head". */
+  placement?: Placement;
 };
 
 export type Analysis = {
@@ -25,6 +30,14 @@ const host = (u: string) => {
     return u;
   }
 };
+
+/** Cuts text to at most `max` characters, ending on a whole word. */
+function trimToWord(v: string, max: number): string {
+  if (v.length <= max) return v;
+  const cut = v.slice(0, max);
+  const space = cut.lastIndexOf(" ");
+  return (space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s,.;:]+$/, "");
+}
 
 /** Escapes text for use inside an HTML attribute value or element body in a copy-paste snippet. */
 export function esc(v: string): string {
@@ -61,9 +74,21 @@ export function analyse(d: AuditData): Analysis {
   const add = (f: Fix) => fixes.push(f);
 
   /* ---- status / speed ---- */
-  if (d.status >= 400) {
+  if (d.status >= 300 && d.status < 400) {
     add({
       id: "status",
+      severity: "critical",
+      placement: "none",
+      title: `The page redirects nowhere (${d.status})`,
+      why: "The server answered with a redirect but didn't say where to. Browsers, Google and preview bots all stop there, so the page never loads.",
+      snippet: `<!-- Nothing to paste here: the redirect needs a Location header,
+     or the page should return 200 OK directly. -->`,
+      prompt: `My page ${d.finalUrl} returns HTTP ${d.status} without a Location header. Make it either redirect properly or return the page with a 200 status.`,
+    });
+  } else if (d.status >= 400) {
+    add({
+      id: "status",
+      placement: "none",
       severity: "critical",
       title: `The page answers with an error (${d.status})`,
       why: "Google won't index a page that returns an error, and every share link will show a blank or broken preview.",
@@ -78,8 +103,9 @@ export function analyse(d: AuditData): Analysis {
     add({
       id: "slow",
       severity: "important",
+      placement: "none",
       title: `Slow first response (${(d.responseTimeMs / 1000).toFixed(1)}s)`,
-      why: "Preview bots on Slack, WhatsApp and X wait only a couple of seconds. Slow pages silently lose their preview card.",
+      why: "Some preview bots give up after only a few seconds, and a slow server makes every one of them more likely to time out. When that happens the share shows as a bare link.",
       snippet: `<!-- Speed comes from the page itself, not a tag.\n     Serve pre-rendered HTML and compress large images. -->`,
       prompt: `${d.finalUrl} takes ${(d.responseTimeMs / 1000).toFixed(1)} seconds to return HTML. Find the slowest work happening before the first byte and make the page respond in under one second.`,
     });
@@ -125,7 +151,7 @@ export function analyse(d: AuditData): Analysis {
       severity: "nice",
       title: `Title is long (${d.title.length} characters)`,
       why: "Google cuts titles off around 60 characters, so the end of your message disappears mid-sentence.",
-      snippet: `<title>${esc(d.title.slice(0, 57))}…</title>`,
+      snippet: `<title>${esc(trimToWord(d.title, 57))}…</title>`,
       prompt: `Shorten my page title to under 60 characters while keeping the most important words first.`,
     });
   } else {
@@ -138,7 +164,7 @@ export function analyse(d: AuditData): Analysis {
       id: "description",
       severity: "critical",
       title: "No meta description",
-      why: "This is the grey text under your Google result and the subtitle in most share cards. Without it, search engines guess — usually badly.",
+      why: "This is the grey text under your Google result and the subtitle in most share cards. Without it, search engines guess, and usually badly.",
       snippet: `<meta name="description" content="${pageDesc}" />`,
       prompt: `Add a meta description to my page: one clear sentence of 120-155 characters explaining what the app does and who it helps. Use the same text for og:description.`,
     });
@@ -148,7 +174,10 @@ export function analyse(d: AuditData): Analysis {
       severity: "nice",
       title: `Description is ${d.description.length < 70 ? "very short" : "too long"} (${d.description.length} characters)`,
       why: "Aim for 120-155 characters. Shorter wastes the space; longer gets cut off with an ellipsis.",
-      snippet: `<meta name="description" content="${esc((d.description ?? "").slice(0, 155))}" />`,
+      snippet:
+        d.description.length < 70
+          ? `<meta name="description" content="${esc(d.description)} [add who it's for and what they can do, 120-155 characters in total]" />`
+          : `<meta name="description" content="${esc(trimToWord(d.description, 152))}…" />`,
       prompt: `Rewrite my meta description so it is between 120 and 155 characters, specific, and mentions what a visitor can do on the page.`,
     });
   } else {
@@ -265,6 +294,7 @@ export function analyse(d: AuditData): Analysis {
       why: "Without twitter:card, X shows a small thumbnail or no image at all instead of the big edge-to-edge picture that stops the scroll.",
       snippet: `<meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${pageTitle}" />
+<meta name="twitter:description" content="${pageDesc}" />
 <meta name="twitter:image" content="${imageUrl}" />`,
       prompt: `Add X (Twitter) card tags to my page: twitter:card set to summary_large_image, plus twitter:title, twitter:description and twitter:image.`,
     });
@@ -272,13 +302,15 @@ export function analyse(d: AuditData): Analysis {
     add({
       id: "twitter-small",
       severity: "nice",
-      title: `Card type is "${d.twitterCard}" — the small one`,
+      title: `Card type is "${d.twitterCard}", the small one`,
       why: "You already have an image; summary_large_image shows it full width on X and gets noticeably more clicks.",
       snippet: `<meta name="twitter:card" content="summary_large_image" />`,
       prompt: `Change my twitter:card tag to summary_large_image so X shows the big preview image.`,
     });
-  } else {
+  } else if (d.twitterCard === "summary_large_image") {
     passed.push("X card set to the large image format");
+  } else {
+    passed.push(`X card type set (${d.twitterCard})`);
   }
 
   /* ---- noindex ---- */
@@ -315,6 +347,7 @@ export function analyse(d: AuditData): Analysis {
     add({
       id: "h1",
       severity: "important",
+      placement: "body",
       title: "No main heading in the HTML",
       why: "The H1 is the strongest on-page clue about your topic, and it's what people read first when they land.",
       snippet: `<h1>${pageTitle}</h1>`,
@@ -324,6 +357,7 @@ export function analyse(d: AuditData): Analysis {
     add({
       id: "h1-many",
       severity: "nice",
+      placement: "body",
       title: `${d.h1Count} main headings on one page`,
       why: "Several H1s blur the page's topic. Keep one, and demote the rest to H2.",
       snippet: `<h1>${pageTitle}</h1>
@@ -339,6 +373,7 @@ export function analyse(d: AuditData): Analysis {
     add({
       id: "lang",
       severity: "nice",
+      placement: "html",
       title: "No language set on the page",
       why: "Search engines and screen readers use this to decide who to show the page to and how to pronounce it.",
       snippet: `<html lang="en">`,

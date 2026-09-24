@@ -89,3 +89,19 @@ describe("recent checks", () => {
     expect(loadRecent()).toEqual([{ url: "https://ok.example/", score: 5, at: 1 }]);
   });
 });
+
+describe("review fixes", () => {
+  it("keeps body and <html> snippets out of the combined head block", () => {
+    const { fixes } = analyse(perfectAudit({ h1Count: 0, lang: null, title: null }));
+    const html = combinedSnippet(fixes);
+    expect(html).toContain("<title>");
+    expect(html).not.toMatch(/<h1|<html/);
+  });
+
+  it("fences a snippet containing backticks so the markdown can't break", () => {
+    const a = analyse(perfectAudit({ title: null }));
+    a.fixes[0] = { ...a.fixes[0]!, snippet: "<title>```x```</title>" };
+    const md = reportMarkdown(perfectAudit(), a);
+    expect(md).toContain("````html\n<title>```x```</title>\n````");
+  });
+});
