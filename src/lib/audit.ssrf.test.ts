@@ -1,4 +1,5 @@
 // Run with: bun test src/lib/audit.ssrf.test.ts
+// @ts-ignore -- bun's built-in test module has no type declarations installed
 import { expect, test } from "bun:test";
 import { areResolvedAddressesSafe } from "./audit.functions";
 
