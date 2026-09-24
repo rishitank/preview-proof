@@ -4,6 +4,7 @@ import {
   decodeBody,
   decodeEntities,
   detectCharset,
+  isBotChallenge,
   isGenericTitle,
   looksLikeHtml,
   parseHtml,
@@ -17,6 +18,45 @@ const page = (
 ) => `<!doctype html><html lang="en-GB"><head>${head}</head><body>${body}</body></html>`;
 
 describe("parseHtml", () => {
+  it('keeps tags whose attribute values contain ">"', () => {
+    const d = parseHtml(
+      page(`<meta name="description" content="Idea -> app in minutes">
+        <meta property="og:title" content='Fast > slow'>`),
+      BASE,
+    );
+    expect(d.description).toBe("Idea -> app in minutes");
+    expect(d.ogTitle).toBe("Fast > slow");
+  });
+
+  it("skips an empty og:image and uses the next candidate, as platforms do", () => {
+    const d = parseHtml(
+      page(`<meta property="og:image" content="">
+        <meta property="og:image:secure_url" content="https://cdn.example.com/og.png">`),
+      BASE,
+    );
+    expect(d.ogImage).toBe("https://cdn.example.com/og.png");
+  });
+
+  it("reads twitter:description", () => {
+    const d = parseHtml(page(`<meta name="twitter:description" content="On X">`), BASE);
+    expect(d.twitterDescription).toBe("On X");
+  });
+
+  it("without </head>, ignores an SVG <title> in the body", () => {
+    const d = parseHtml(
+      '<html><head><meta charset="utf-8"><body><svg><title>Icon</title></svg><h1>Hi</h1></body></html>',
+      BASE,
+    );
+    expect(d.title).toBeNull();
+  });
+
+  it("accepts an inline data: image favicon but not other data: URLs", () => {
+    expect(
+      parseHtml(page(`<link rel="icon" href="data:image/svg+xml,%3Csvg%3E">`), BASE).favicon,
+    ).toBe("data:image/svg+xml,%3Csvg%3E");
+    expect(parseHtml(page(`<link rel="icon" href="data:text/html,x">`), BASE).favicon).toBeNull();
+  });
+
   it("extracts every tag a preview bot reads", () => {
     const d = parseHtml(
       page(`
@@ -203,9 +243,18 @@ describe("isGenericTitle", () => {
 describe("decodeEntities", () => {
   it("decodes named, decimal and hex entities and leaves unknown ones alone", () => {
     expect(decodeEntities("&amp;&lt;&gt;&quot;&#39;&#x27;&nbsp;&mdash;&#128640;&bogus;")).toBe(
-      "&<>\"'' —🚀&bogus;",
+      "&<>\"'' —🚀&bogus;",
     );
-    expect(decodeEntities("&#99999999;")).toBe("&#99999999;");
+  });
+
+  it("decodes every HTML 4 named entity, case-sensitively", () => {
+    expect(decodeEntities("Caf&eacute; &Eacute;cole &euro;5 &frac12; &hearts; &apos;")).toBe(
+      "Café École €5 ½ ♥ '",
+    );
+  });
+
+  it("turns NUL, surrogates and out-of-range code points into U+FFFD, like browsers", () => {
+    expect(decodeEntities("a&#0;b&#xD800;c&#99999999;")).toBe("a�b�c�");
   });
 });
 
@@ -267,4 +316,20 @@ describe("looksLikeHtml", () => {
     ["application/pdf", "%PDF-1.7"],
     [null, "just some text"],
   ])("rejects %s", (ct, body) => expect(looksLikeHtml(ct, body)).toBe(false));
+});
+
+describe("byte-order marks and bot challenges", () => {
+  it("honours a UTF-16 byte-order mark over the declared charset", () => {
+    const text = "<title>Hi</title>";
+    const bytes = new Uint8Array(2 + text.length * 2);
+    bytes.set([0xff, 0xfe]);
+    for (let i = 0; i < text.length; i++) bytes[2 + i * 2] = text.charCodeAt(i);
+    expect(decodeBody(bytes, "text/html; charset=utf-8")).toBe(text);
+  });
+
+  it("recognises a challenge title that carries attributes", () => {
+    expect(isBotChallenge(403, new Headers(), '<title data-x="1">Just a moment...</title>')).toBe(
+      true,
+    );
+  });
 });
