@@ -6,7 +6,9 @@ Live: https://preview-proof.lovable.app · Built with [Lovable](https://lovable.
 
 ## Why it exists
 
-Many apps built with AI tools are single-page apps. Their title, description and Open Graph tags are only set after JavaScript runs. Browsers show them fine, but X, LinkedIn, Slack and WhatsApp never run JavaScript. So every share becomes a bare link, and the builder never finds out. PreviewProof detects that trap specifically, along with the usual preview killers:
+Many apps built with AI tools are single-page apps. Their title, description and Open Graph tags are only set after JavaScript runs. Browsers show them fine, but X, LinkedIn, Slack and WhatsApp never run JavaScript. So every share becomes a bare link, and the builder never finds out.
+
+Lovable now server-renders new projects (TanStack Start). It also pre-renders older apps for _verified_ crawlers, so for those apps PreviewProof reports the empty shell at lower severity. Its suggested fix is the upgrade to server-side rendering, not a scare. Along with that trap, it checks for the usual preview killers:
 
 - missing or broken `og:image`
 - an image URL that isn't an image, or is too heavy for WhatsApp
@@ -15,6 +17,18 @@ Many apps built with AI tools are single-page apps. Their title, description and
 - missing `twitter:card`
 - relative image URLs
 - slow first responses
+- stock template share images, such as Lovable's default `opengraph-image`
+- firewall bot challenges (Cloudflare "Just a moment…"), which are reported as such rather than graded as if they were your page
+
+## Features
+
+- **Live previews** for Google, X, LinkedIn, Slack and iMessage/WhatsApp, each with that platform's real fallbacks.
+- **Prioritised fixes:** critical, important and nice-to-have. Each comes with copy-paste HTML and a ready prompt for Lovable.
+- **Copy all HTML** merges every fix into one de-duplicated `<head>` block. **Copy one Lovable prompt** turns every fix into a single numbered prompt.
+- **Shareable reports:** `/?url=…` re-runs the check when opened, and the address bar updates on every check.
+- **Download report** as Markdown.
+- **Recent checks,** kept only in your browser.
+- **Light and dark themes,** with no flash on load. Animations respect `prefers-reduced-motion`.
 
 ## How it works
 
@@ -36,7 +50,8 @@ browser ──► auditUrl (server function)
 | `src/lib/audit.server.ts` | Network pipeline. `fetch` and DNS are injected, so it can be tested offline                                                       |
 | `src/lib/html.ts`         | Metadata extraction, entity decoding, charset detection, HTML sniffing                                                            |
 | `src/lib/analysis.ts`     | Scoring and fix generation. All page text is escaped before it goes into a snippet                                                |
-| `src/components/*`        | Preview cards and the fix list                                                                                                    |
+| `src/lib/report.ts`       | Combined snippet and prompt, Markdown export, share links                                                                         |
+| `src/components/*`        | Preview cards, fix list, animated score, glass UI (Motion)                                                                        |
 
 ## Security
 
@@ -61,6 +76,7 @@ bun run dev          # http://localhost:8080
 bun run test         # unit, integration and component tests (Vitest)
 bun run test:e2e     # browser tests, desktop + mobile (Playwright)
 bun run lint && bun run typecheck && bun run build
+npx @lhci/cli@0.14.x autorun   # Lighthouse budgets against the built Worker
 ```
 
 ## Testing
@@ -72,7 +88,9 @@ bun run lint && bun run typecheck && bun run build
 | `html.test.ts`         | Parsing edge cases: JS-shell detection that doesn't flag small static pages, tags hidden in comments/scripts/templates, SVG `<title>`, unquoted/upper-case attributes, relative and `javascript:` image URLs, entities, charsets                                                                                                                                   |
 | `analysis.test.ts`     | Every rule fires at the right severity, no double-reporting, score floor, HTML escaping of hostile titles                                                                                                                                                                                                                                                          |
 | `components.test.tsx`  | Preview fallbacks, hidden broken images, hostile text rendered as text, copy-to-clipboard (including when it's denied)                                                                                                                                                                                                                                             |
-| `e2e/app.spec.ts`      | The page's own social tags and OG image, input typed before hydration, every validation error in the UI, empty submit, no horizontal scroll, axe WCAG A/AA                                                                                                                                                                                                         |
+| `e2e/app.spec.ts`      | The page's own social tags and OG image, input typed before hydration, every validation error in the UI, shareable `?url=` links, dark mode persistence and contrast, reduced motion, empty submit, no horizontal scroll, axe WCAG A/AA. Runs on desktop and mobile                                                                                                |
+| `report.test.ts`       | Combined snippet de-duplication, combined prompt, Markdown export, share links, recent-checks storage (including corrupt storage)                                                                                                                                                                                                                                  |
+| `lighthouserc.json`    | Lighthouse CI against the production Worker build (run locally with Wrangler). The build fails below 90 performance or 100 for accessibility, best practices and SEO, or if CLS goes above 0.05                                                                                                                                                                    |
 
 The security tests were mutation-checked. Each of the following was re-introduced deliberately, and each one made the suite fail:
 
