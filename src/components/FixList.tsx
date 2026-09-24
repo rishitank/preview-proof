@@ -10,14 +10,14 @@ const META: Record<
 > = {
   critical: {
     label: "Critical",
-    blurb: "Fix these first — they're costing you clicks right now.",
-    className: "bg-destructive/10 text-destructive border-destructive/30",
+    blurb: "Fix these first: they're costing you clicks right now.",
+    className: "bg-destructive/10 text-red-700 border-destructive/30 dark:text-red-300",
     Icon: AlertTriangle,
   },
   important: {
     label: "Important",
     blurb: "Worth doing this week.",
-    className: "bg-warning/15 text-warning-foreground border-warning/40",
+    className: "bg-warning/15 text-amber-800 border-warning/40 dark:text-amber-200",
     Icon: CircleAlert,
   },
   nice: {
@@ -73,7 +73,11 @@ function FixCard({ fix }: { fix: Fix }) {
                   </h4>
                   <CopyButton value={fix.snippet} label="Copy HTML" />
                 </div>
-                <pre className="overflow-x-auto rounded-lg bg-surface p-3 text-xs leading-relaxed">
+                <pre
+                  tabIndex={0}
+                  aria-label="HTML snippet"
+                  className="overflow-x-auto rounded-lg bg-surface p-3 text-xs leading-relaxed"
+                >
                   <code>{fix.snippet}</code>
                 </pre>
               </div>

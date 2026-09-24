@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion } from "motion/react";
 import { Globe, ImageOff, MessageCircle, Link2 } from "lucide-react";
 import type { AuditData } from "@/lib/audit-types";
@@ -23,6 +24,16 @@ function pathOf(url: string) {
 
 function Fallback({ children }: { children: React.ReactNode }) {
   return <span className="italic text-muted-foreground">{children}</span>;
+}
+
+/** An image that swaps to `fallback` if the browser can't load it (hotlink protection, CORP, offline). */
+function SafeImg({
+  fallback = null,
+  ...props
+}: React.ImgHTMLAttributes<HTMLImageElement> & { fallback?: React.ReactNode }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <>{fallback}</>;
+  return <img {...props} referrerPolicy="no-referrer" onError={() => setFailed(true)} />;
 }
 
 function usableImage(d: AuditData, url: string | null) {
@@ -63,12 +74,20 @@ function ImageBox({ src, ratio = "aspect-[1.91/1]" }: { src: string | null; rati
     );
   }
   return (
-    <img
+    <SafeImg
       src={src}
       alt="Social preview"
       className={`${ratio} w-full bg-secondary object-cover`}
       loading="lazy"
-      referrerPolicy="no-referrer"
+      key={src}
+      fallback={
+        <div
+          className={`flex ${ratio} w-full items-center justify-center gap-2 bg-secondary px-4 text-center text-xs text-muted-foreground`}
+        >
+          <ImageOff className="size-4 shrink-0" />
+          Image found, but its host blocks showing it on other sites
+        </div>
+      }
     />
   );
 }
@@ -99,11 +118,11 @@ function GoogleResult({ d }: { d: AuditData }) {
             <div className="flex items-center gap-2">
               <div className="flex size-6 items-center justify-center overflow-hidden rounded-full border border-border bg-surface">
                 {d.favicon ? (
-                  <img
+                  <SafeImg
                     src={d.favicon}
                     alt=""
                     className="size-4 object-contain"
-                    referrerPolicy="no-referrer"
+                    fallback={<Globe className="size-3.5 text-muted-foreground" />}
                   />
                 ) : (
                   <Globe className="size-3.5 text-muted-foreground" />
@@ -147,7 +166,7 @@ function XCard({ d }: { d: AuditData }) {
       <Shell name="X (Twitter)" note="No card tags — posts as a bare link">
         <div className="rounded-xl bg-surface p-4 text-sm">
           <p className="text-foreground">Just shipped something new →</p>
-          <p className="mt-1 break-all text-[#1d9bf0]">{d.finalUrl}</p>
+          <p className="mt-1 break-all text-[#0b6cb0] dark:text-[#4aa8f0]">{d.finalUrl}</p>
           <p className="mt-3 text-xs text-muted-foreground">
             No preview card appears. The link sits in the post as plain blue text.
           </p>
@@ -234,11 +253,11 @@ function SlackUnfurl({ d }: { d: AuditData }) {
         <div className="border-l-4 border-primary pl-3">
           <div className="flex items-center gap-2">
             {d.favicon ? (
-              <img
+              <SafeImg
                 src={d.favicon}
                 alt=""
                 className="size-4 rounded-sm object-contain"
-                referrerPolicy="no-referrer"
+                fallback={<Globe className="size-4 text-muted-foreground" />}
               />
             ) : (
               <Globe className="size-4 text-muted-foreground" />
@@ -254,12 +273,12 @@ function SlackUnfurl({ d }: { d: AuditData }) {
             )}
           </p>
           {img ? (
-            <img
+            <SafeImg
               src={img}
               alt="Slack preview"
               className="mt-2 max-h-40 w-full rounded-md object-cover"
               loading="lazy"
-              referrerPolicy="no-referrer"
+              key={img}
             />
           ) : null}
         </div>
