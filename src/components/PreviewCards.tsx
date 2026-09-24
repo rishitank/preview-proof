@@ -1,3 +1,4 @@
+import { motion } from "motion/react";
 import { Globe, ImageOff, MessageCircle, Link2 } from "lucide-react";
 import type { AuditData } from "@/lib/audit-types";
 
@@ -311,14 +312,30 @@ function ChatBubble({ d }: { d: AuditData }) {
 
 export function PreviewCards({ data }: { data: AuditData }) {
   return (
-    <div className="grid items-start gap-4 md:grid-cols-2">
-      <GoogleResult d={data} />
-      <XCard d={data} />
-      <LinkedInPost d={data} />
-      <SlackUnfurl d={data} />
-      <div className="md:col-span-2">
-        <ChatBubble d={data} />
-      </div>
-    </div>
+    <motion.div
+      className="grid items-start gap-4 md:grid-cols-2"
+      initial="hidden"
+      animate="show"
+      variants={{ show: { transition: { staggerChildren: 0.07 } } }}
+    >
+      {[
+        <GoogleResult key="g" d={data} />,
+        <XCard key="x" d={data} />,
+        <LinkedInPost key="li" d={data} />,
+        <SlackUnfurl key="s" d={data} />,
+        <ChatBubble key="c" d={data} />,
+      ].map((cardEl, i) => (
+        <motion.div
+          key={i}
+          className={i === 4 ? "md:col-span-2" : undefined}
+          variants={{
+            hidden: { opacity: 0, y: 14 },
+            show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } },
+          }}
+        >
+          {cardEl}
+        </motion.div>
+      ))}
+    </motion.div>
   );
 }

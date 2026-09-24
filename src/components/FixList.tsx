@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { AlertTriangle, ChevronDown, CircleAlert, Sparkles, CheckCircle2 } from "lucide-react";
 import { CopyButton } from "./CopyButton";
 import type { Fix, Severity } from "@/lib/analysis";
@@ -35,6 +36,7 @@ function FixCard({ fix }: { fix: Fix }) {
     <div className="surface-card overflow-hidden">
       <button
         type="button"
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-start gap-3 p-4 text-left"
       >
@@ -53,32 +55,43 @@ function FixCard({ fix }: { fix: Fix }) {
         />
       </button>
 
-      {open ? (
-        <div className="space-y-4 border-t border-border bg-muted/40 p-4">
-          <div>
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Paste this into your page head
-              </h4>
-              <CopyButton value={fix.snippet} label="Copy HTML" />
+      <AnimatePresence initial={false}>
+        {open ? (
+          <motion.div
+            key="body"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-4 border-t border-border bg-muted/40 p-4">
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Paste this into your page head
+                  </h4>
+                  <CopyButton value={fix.snippet} label="Copy HTML" />
+                </div>
+                <pre className="overflow-x-auto rounded-lg bg-surface p-3 text-xs leading-relaxed">
+                  <code>{fix.snippet}</code>
+                </pre>
+              </div>
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Or fix it in Lovable
+                  </h4>
+                  <CopyButton value={fix.prompt} label="Copy prompt" />
+                </div>
+                <p className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 text-sm">
+                  {fix.prompt}
+                </p>
+              </div>
             </div>
-            <pre className="overflow-x-auto rounded-lg bg-surface p-3 text-xs leading-relaxed">
-              <code>{fix.snippet}</code>
-            </pre>
-          </div>
-          <div>
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Or fix it in Lovable
-              </h4>
-              <CopyButton value={fix.prompt} label="Copy prompt" />
-            </div>
-            <p className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 text-sm">
-              {fix.prompt}
-            </p>
-          </div>
-        </div>
-      ) : null}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
