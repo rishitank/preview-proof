@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -8,6 +8,7 @@ import { auditUrl } from "@/lib/audit.functions";
 import { analyse } from "@/lib/analysis";
 import type { AuditResponse } from "@/lib/audit-types";
 import { PreviewCards } from "@/components/PreviewCards";
+import { OG_IMAGE_URL, SITE_URL } from "@/lib/site";
 import { FixList } from "@/components/FixList";
 import { ScoreRing } from "@/components/ScoreRing";
 
@@ -23,13 +24,20 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: TITLE },
       { property: "og:description", content: DESCRIPTION },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: "/" },
-      { property: "og:site_name", content: "PreviewProof" },
+      { property: "og:url", content: `${SITE_URL}/` },
+      { property: "og:image", content: OG_IMAGE_URL },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      {
+        property: "og:image:alt",
+        content: "PreviewProof: see your link the way the internet sees it",
+      },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: TITLE },
       { name: "twitter:description", content: DESCRIPTION },
+      { name: "twitter:image", content: OG_IMAGE_URL },
     ],
-    links: [{ rel: "canonical", href: "/" }],
+    links: [{ rel: "canonical", href: `${SITE_URL}/` }],
     scripts: [
       {
         type: "application/ld+json",
@@ -37,6 +45,7 @@ export const Route = createFileRoute("/")({
           "@context": "https://schema.org",
           "@type": "WebApplication",
           name: "PreviewProof",
+          url: `${SITE_URL}/`,
           applicationCategory: "DeveloperApplication",
           description: DESCRIPTION,
           offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
@@ -58,6 +67,7 @@ const ERROR_ICONS = {
 
 function Index() {
   const [url, setUrl] = useState("");
+  const resultsRef = useRef<HTMLDivElement>(null);
   const run = useServerFn(auditUrl);
 
   const mutation = useMutation<AuditResponse, Error, string>({
@@ -65,16 +75,21 @@ function Index() {
   });
 
   const result = mutation.data;
-  const analysis = useMemo(
-    () => (result?.ok ? analyse(result.data) : null),
-    [result],
-  );
+  const analysis = useMemo(() => (result?.ok ? analyse(result.data) : null), [result]);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!url.trim() || mutation.isPending) return;
-    mutation.mutate(url.trim());
+    // Read the live field value, not just React state: text typed before hydration never fired onChange.
+    const value = String(new FormData(e.currentTarget).get("url") ?? url).trim();
+    if (value !== url) setUrl(value);
+    if (!value || mutation.isPending) return;
+    mutation.mutate(value);
   };
+
+  // Move focus to the outcome so keyboard and screen-reader users land on it.
+  useEffect(() => {
+    if (mutation.isSuccess || mutation.isError) resultsRef.current?.focus();
+  }, [mutation.isSuccess, mutation.isError, mutation.submittedAt]);
 
   const verdict =
     analysis == null
@@ -96,18 +111,25 @@ function Index() {
           </span>
           <h1 className="mt-5 text-4xl font-bold leading-tight sm:text-6xl">
             See your link the way
-            <span className="block bg-gradient-brand bg-clip-text text-transparent">the internet sees it</span>
+            <span className="block bg-gradient-brand bg-clip-text text-transparent">
+              the internet sees it
+            </span>
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground sm:text-lg">
-            Paste a public URL. We'll fetch it exactly like a sharing bot does — no JavaScript — and show you the
-            real previews, plus how to fix what's missing.
+            Paste a public URL. We'll fetch it exactly like a sharing bot does — no JavaScript — and
+            show you the real previews, plus how to fix what's missing.
           </p>
 
           <form onSubmit={submit} className="mx-auto mt-8 max-w-xl">
             <div className="flex flex-col gap-2 rounded-2xl border border-border bg-surface p-2 shadow-lift sm:flex-row">
               <input
                 type="text"
+                name="url"
                 inputMode="url"
+                autoComplete="url"
+                autoCapitalize="none"
+                spellCheck={false}
+                required
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="yourapp.lovable.app"
@@ -116,7 +138,7 @@ function Index() {
               />
               <button
                 type="submit"
-                disabled={mutation.isPending || !url.trim()}
+                disabled={mutation.isPending}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-brand px-5 py-3 text-base font-semibold text-primary-foreground shadow-soft transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {mutation.isPending ? (
@@ -137,17 +159,28 @@ function Index() {
         </div>
       </section>
 
-      <div className="mx-auto max-w-5xl px-4 pb-24">
+      <div
+        ref={resultsRef}
+        tabIndex={-1}
+        aria-live="polite"
+        aria-busy={mutation.isPending}
+        className="mx-auto max-w-5xl px-4 pb-24 outline-none"
+      >
         {/* Loading */}
         {mutation.isPending ? (
           <div className="surface-card mt-2 p-6">
             <div className="flex items-center gap-3">
               <Loader2 className="size-5 animate-spin text-primary" />
-              <p className="font-display font-semibold">Fetching your page like a link-preview bot…</p>
+              <p className="font-display font-semibold">
+                Fetching your page like a link-preview bot…
+              </p>
             </div>
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="animate-pulse space-y-3 rounded-xl border border-border p-4">
+                <div
+                  key={i}
+                  className="animate-pulse space-y-3 rounded-xl border border-border p-4"
+                >
                   <div className="h-28 rounded-lg bg-muted" />
                   <div className="h-3 w-2/3 rounded bg-muted" />
                   <div className="h-3 w-1/2 rounded bg-muted" />
@@ -160,7 +193,9 @@ function Index() {
         {/* Request-level failure */}
         {mutation.isError ? (
           <div className="surface-card mt-2 border-destructive/40 p-6">
-            <h2 className="font-display text-lg font-bold text-destructive">Something went wrong</h2>
+            <h2 className="font-display text-lg font-bold text-destructive">
+              Something went wrong
+            </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               We couldn't finish the check. Please try again in a moment.
             </p>
@@ -176,11 +211,13 @@ function Index() {
                   <div className="flex items-start gap-3">
                     <Icon className="mt-0.5 size-5 shrink-0 text-destructive" />
                     <div>
-                      <h2 className="font-display text-lg font-bold">We couldn't check that link</h2>
+                      <h2 className="font-display text-lg font-bold">
+                        We couldn't check that link
+                      </h2>
                       <p className="mt-1 text-sm text-muted-foreground">{result.error.message}</p>
                       <button
                         type="button"
-                        onClick={() => url.trim() && mutation.mutate(url.trim())}
+                        onClick={() => mutation.variables && mutation.mutate(mutation.variables)}
                         className="mt-4 inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary"
                       >
                         <RefreshCw className="size-4" /> Try again
@@ -220,9 +257,10 @@ function Index() {
                   Heads up: your page is empty until JavaScript runs
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  The raw HTML we received is basically an empty container with no real title or description. X,
-                  LinkedIn, Slack and WhatsApp never run JavaScript, so they see nothing — which is why your shares
-                  look blank. The fixes below put those tags in the HTML itself.
+                  The raw HTML we received is basically an empty container with no real title or
+                  description. X, LinkedIn, Slack and WhatsApp never run JavaScript, so they see
+                  nothing — which is why your shares look blank. The fixes below put those tags in
+                  the HTML itself.
                 </p>
               </div>
             ) : null}
@@ -249,7 +287,13 @@ function Index() {
   );
 }
 
-function Pill({ children, tone = "default" }: { children: React.ReactNode; tone?: "default" | "danger" }) {
+function Pill({
+  children,
+  tone = "default",
+}: {
+  children: React.ReactNode;
+  tone?: "default" | "danger";
+}) {
   return (
     <span
       className={`rounded-full border px-2.5 py-1 text-xs font-medium ${

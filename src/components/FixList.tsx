@@ -38,7 +38,9 @@ function FixCard({ fix }: { fix: Fix }) {
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-start gap-3 p-4 text-left"
       >
-        <span className={`mt-0.5 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${className}`}>
+        <span
+          className={`mt-0.5 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${className}`}
+        >
           <Icon className="size-3" />
           {label}
         </span>
@@ -46,7 +48,9 @@ function FixCard({ fix }: { fix: Fix }) {
           <span className="block font-display text-base font-semibold">{fix.title}</span>
           <span className="mt-1 block text-sm text-muted-foreground">{fix.why}</span>
         </span>
-        <ChevronDown className={`mt-1 size-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown
+          className={`mt-1 size-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
+        />
       </button>
 
       {open ? (
