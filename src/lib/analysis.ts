@@ -1,4 +1,5 @@
 import type { AuditData } from "./audit-types";
+import { isGenericTitle } from "./html";
 
 export type Severity = "critical" | "important" | "nice";
 
@@ -25,15 +26,37 @@ const host = (u: string) => {
   }
 };
 
-const GENERIC = /^(lovable app|lovable generated project|react app|vite \+ react|vite app|untitled|document|home|app|my app)$/i;
+/** Escapes text for use inside an HTML attribute value or element body in a copy-paste snippet. */
+export function esc(v: string): string {
+  return v
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
 
 export function analyse(d: AuditData): Analysis {
   const fixes: Fix[] = [];
   const passed: string[] = [];
   const site = host(d.finalUrl);
-  const pageTitle = d.title ?? d.ogTitle ?? `${site} — what it does, in a few words`;
-  const pageDesc =
-    d.description ?? d.ogDescription ?? `A one-sentence summary of what ${site} does and who it's for.`;
+  const pageTitle = esc(
+    (!isGenericTitle(d.title) ? d.title : null) ??
+      (!isGenericTitle(d.ogTitle) ? d.ogTitle : null) ??
+      `${site}: what it does, in a few words`,
+  );
+  const pageDesc = esc(
+    d.description ??
+      d.ogDescription ??
+      `A one-sentence summary of what ${site} does and who it's for.`,
+  );
+  const origin = (() => {
+    try {
+      return new URL(d.finalUrl).origin;
+    } catch {
+      return `https://${site}`;
+    }
+  })();
+  const imageUrl = esc(d.ogImage && !d.ogImageRelative ? d.ogImage : `${origin}/og-image.png`);
 
   const add = (f: Fix) => fixes.push(f);
 
@@ -83,7 +106,7 @@ export function analyse(d: AuditData): Analysis {
   }
 
   /* ---- title ---- */
-  if (!d.title || GENERIC.test(d.title)) {
+  if (!d.title || isGenericTitle(d.title)) {
     add({
       id: "title",
       severity: "critical",
@@ -98,7 +121,7 @@ export function analyse(d: AuditData): Analysis {
       severity: "nice",
       title: `Title is long (${d.title.length} characters)`,
       why: "Google cuts titles off around 60 characters, so the end of your message disappears mid-sentence.",
-      snippet: `<title>${d.title.slice(0, 57)}…</title>`,
+      snippet: `<title>${esc(d.title.slice(0, 57))}…</title>`,
       prompt: `Shorten my page title to under 60 characters while keeping the most important words first.`,
     });
   } else {
@@ -121,7 +144,7 @@ export function analyse(d: AuditData): Analysis {
       severity: "nice",
       title: `Description is ${d.description.length < 70 ? "very short" : "too long"} (${d.description.length} characters)`,
       why: "Aim for 120-155 characters. Shorter wastes the space; longer gets cut off with an ellipsis.",
-      snippet: `<meta name="description" content="${pageDesc.slice(0, 155)}" />`,
+      snippet: `<meta name="description" content="${esc((d.description ?? "").slice(0, 155))}" />`,
       prompt: `Rewrite my meta description so it is between 120 and 155 characters, specific, and mentions what a visitor can do on the page.`,
     });
   } else {
@@ -129,38 +152,75 @@ export function analyse(d: AuditData): Analysis {
   }
 
   /* ---- og image ---- */
-  const imageBroken = d.ogImage && d.ogImageCheck && !d.ogImageCheck.ok;
-  const imageHuge = d.ogImageCheck?.bytes != null && d.ogImageCheck.bytes > 5 * 1024 * 1024;
+  const check = d.ogImageCheck;
+  const imageBroken = !!d.ogImage && !!check && !check.ok;
+  const imageWrongType =
+    !!check?.ok && !!check.contentType && !check.contentType.toLowerCase().startsWith("image/");
+  const imageHuge = check?.bytes != null && check.bytes > 5 * 1024 * 1024;
+  const imageHeavy = check?.bytes != null && check.bytes > 600 * 1024;
+  const imageTags = `<meta property="og:image" content="${imageUrl}" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:image" content="${imageUrl}" />`;
   if (!d.ogImage) {
     add({
       id: "og-image",
       severity: "critical",
       title: "No social preview image",
       why: "A link with a picture gets far more clicks than a bare blue link. Without og:image your app shows as a plain text row in every feed and chat.",
-      snippet: `<meta property="og:image" content="https://${site}/preview.jpg" />
-<meta property="og:image:width" content="1200" />
-<meta property="og:image:height" content="630" />
-<meta name="twitter:image" content="https://${site}/preview.jpg" />`,
-      prompt: `Create a 1200x630 social share image for my app and add og:image and twitter:image tags pointing at its full https URL. Keep the file under 1 MB and make sure the image matches what the page actually shows.`,
+      snippet: imageTags,
+      prompt: `Create a 1200x630 social share image for my app and add og:image and twitter:image tags pointing at its full https URL. Keep the file under 600 KB and make sure the image matches what the page actually shows.`,
     });
   } else if (imageBroken) {
+    const reason =
+      check?.error === "blocked"
+        ? "points at an address that isn't public"
+        : check?.status
+          ? `answers with HTTP ${check.status}`
+          : "can't be reached";
     add({
       id: "og-image-broken",
       severity: "critical",
       title: "Your preview image doesn't load",
-      why: `The image URL answers with ${d.ogImageCheck?.status ?? "an error"}, so every platform quietly drops the picture and shows a bare link instead.`,
-      snippet: `<meta property="og:image" content="https://${site}/preview.jpg" />`,
+      why: `The image URL ${reason}, so every platform quietly drops the picture and shows a bare link instead.`,
+      snippet: imageTags,
       prompt: `My og:image URL (${d.ogImage}) does not load. Replace it with a working, publicly reachable 1200x630 image served over https, and check it opens in a private browser window.`,
+    });
+  } else if (imageWrongType) {
+    add({
+      id: "og-image-type",
+      severity: "critical",
+      title: "Your preview image URL isn't an image",
+      why: `It returns ${check?.contentType?.split(";")[0]} instead of an image, so platforms can't show a picture.`,
+      snippet: imageTags,
+      prompt: `My og:image URL (${d.ogImage}) returns a web page instead of an image file. Point og:image and twitter:image at the actual image file (PNG or JPG, 1200x630) using its full https URL.`,
+    });
+  } else if (d.ogImageRelative) {
+    add({
+      id: "og-image-relative",
+      severity: "important",
+      title: "Preview image uses a relative URL",
+      why: "Facebook, LinkedIn and several chat apps only accept a full https:// address in og:image. A relative path often means no picture.",
+      snippet: imageTags,
+      prompt: `My og:image and twitter:image tags use a relative path. Change them to the full absolute https URL of the image.`,
     });
   } else if (imageHuge) {
     add({
       id: "og-image-size",
       severity: "important",
       title: "Preview image is very large",
-      why: "WhatsApp skips images over about 600 KB and X and LinkedIn drop anything over 5 MB — the tag is there, but no picture appears.",
-      snippet: `<!-- Export the same image at 1200x630 and compress it under 1 MB -->
-<meta property="og:image" content="https://${site}/preview.jpg" />`,
-      prompt: `My og:image is too heavy for chat apps to render. Produce a compressed 1200x630 version under 500 KB and point og:image and twitter:image at it.`,
+      why: "X and LinkedIn drop images over 5 MB and WhatsApp skips anything over about 600 KB, so the tag is there but no picture appears.",
+      snippet: `<!-- Export the same image at 1200x630 and compress it under 600 KB -->\n${imageTags}`,
+      prompt: `My og:image is too heavy for chat apps to render. Produce a compressed 1200x630 version under 600 KB and point og:image and twitter:image at it.`,
+    });
+  } else if (imageHeavy) {
+    add({
+      id: "og-image-heavy",
+      severity: "nice",
+      title: "Preview image is heavy for WhatsApp",
+      why: "WhatsApp tends to skip preview images over about 600 KB and sends a plain link instead.",
+      snippet: `<!-- Compress the same 1200x630 image under 600 KB -->\n${imageTags}`,
+      prompt: `Compress my og:image to under 600 KB at 1200x630 so WhatsApp shows it.`,
     });
   } else {
     passed.push("Social preview image loads");
@@ -176,7 +236,7 @@ export function analyse(d: AuditData): Analysis {
       snippet: `<meta property="og:title" content="${pageTitle}" />
 <meta property="og:description" content="${pageDesc}" />
 <meta property="og:type" content="website" />
-<meta property="og:url" content="${d.finalUrl}" />`,
+<meta property="og:url" content="${esc(d.finalUrl)}" />`,
       prompt: `Add complete Open Graph tags to my page: og:title, og:description, og:type and og:url, matching the page's real title and description.`,
     });
   } else {
@@ -192,7 +252,7 @@ export function analyse(d: AuditData): Analysis {
       why: "Without twitter:card, X shows a small thumbnail or no image at all instead of the big edge-to-edge picture that stops the scroll.",
       snippet: `<meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${pageTitle}" />
-<meta name="twitter:image" content="${d.ogImage ?? `https://${site}/preview.jpg`}" />`,
+<meta name="twitter:image" content="${imageUrl}" />`,
       prompt: `Add X (Twitter) card tags to my page: twitter:card set to summary_large_image, plus twitter:title, twitter:description and twitter:image.`,
     });
   } else if (d.twitterCard !== "summary_large_image" && d.ogImage) {
@@ -230,7 +290,7 @@ export function analyse(d: AuditData): Analysis {
       severity: "nice",
       title: "No canonical link",
       why: "A canonical tag tells Google which address is the real one, so shares with tracking codes don't split your ranking across duplicates.",
-      snippet: `<link rel="canonical" href="${d.finalUrl}" />`,
+      snippet: `<link rel="canonical" href="${esc(d.finalUrl)}" />`,
       prompt: `Add a self-referencing canonical link to every page so search engines know the preferred URL.`,
     });
   } else {
@@ -286,7 +346,7 @@ export function analyse(d: AuditData): Analysis {
       prompt: `Create a simple favicon that matches my brand and link it from the page head.`,
     });
   } else {
-    passed.push("Favicon found");
+    passed.push(d.faviconDeclared ? "Favicon found" : "Favicon found at /favicon.ico");
   }
 
   const weights: Record<Severity, number> = { critical: 18, important: 8, nice: 3 };
