@@ -91,15 +91,19 @@ export function analyse(d: AuditData): Analysis {
   if (d.spaTrap) {
     add({
       id: "spa",
-      severity: "critical",
-      title: "Your tags are added by JavaScript, so sharing bots never see them",
-      why: "X, LinkedIn, Slack and WhatsApp read the raw HTML and never run JavaScript. Right now they see an empty page, so every share looks like a bare link.",
+      severity: d.builtWithLovable ? "important" : "critical",
+      title: "Your page is an empty shell until JavaScript runs",
+      why: d.builtWithLovable
+        ? "The HTML your server sends has no real title, description or content. Lovable pre-renders older apps for verified crawlers, so Google and the big networks may still be fine, but every other link unfurler, SEO tool and AI agent sees a blank page."
+        : "X, LinkedIn, Slack and WhatsApp read the raw HTML and never run JavaScript. Right now they see an empty page, so every share looks like a bare link.",
       snippet: `<!-- Put real tags in the HTML the server sends -->
 <title>${pageTitle}</title>
 <meta name="description" content="${pageDesc}" />
 <meta property="og:title" content="${pageTitle}" />
 <meta property="og:description" content="${pageDesc}" />`,
-      prompt: `My page's title, description and Open Graph tags are only set after JavaScript runs, so link previews and Google see an empty page. Move the metadata into the HTML that the server sends for each page, using the route's head() metadata, and give every page its own title, description, og:title, og:description and og:image.`,
+      prompt: d.builtWithLovable
+        ? `Upgrade this project to TanStack Start so every page is server-side rendered. Then give each route its own head() metadata: title, description, og:title, og:description, og:image (absolute https URL) and twitter:card set to summary_large_image.`
+        : `My page's title, description and Open Graph tags are only set after JavaScript runs, so link previews and Google see an empty page. Move the metadata into the HTML that the server sends for each page, using the route's head() metadata, and give every page its own title, description, og:title, og:description and og:image.`,
     });
   } else if (d.bodyTextLength > 300) {
     passed.push("Real content is in the HTML before JavaScript runs");
@@ -185,6 +189,15 @@ export function analyse(d: AuditData): Analysis {
       why: `The image URL ${reason}, so every platform quietly drops the picture and shows a bare link instead.`,
       snippet: imageTags,
       prompt: `My og:image URL (${d.ogImage}) does not load. Replace it with a working, publicly reachable 1200x630 image served over https, and check it opens in a private browser window.`,
+    });
+  } else if (d.ogImageIsPlaceholder) {
+    add({
+      id: "og-image-placeholder",
+      severity: "important",
+      title: "Your preview image is the template's stock image",
+      why: "Every app built from the same template shares this picture, so your link looks like everyone else's and says nothing about your product.",
+      snippet: imageTags,
+      prompt: `My og:image still points at the template's default image. Create a 1200x630 share image for this app that shows its name and what it does, save it in public/, and point og:image and twitter:image at its full https URL.`,
     });
   } else if (imageWrongType) {
     add({
