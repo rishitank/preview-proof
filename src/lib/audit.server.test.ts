@@ -365,6 +365,41 @@ describe("runAudit: failures, limits and content types", () => {
     expect(r.ok && r.data.title).toBe("Sniffed");
   });
 
+  it("recognises a Cloudflare bot challenge instead of grading the firewall page", async () => {
+    const challenge = `<!DOCTYPE html><html lang="en-US"><head><title>Just a moment...</title><meta name="robots" content="noindex,nofollow"></head><body><script>window._cf_chl_opt={cvId:'3'}</script></body></html>`;
+    const net = fakeNet({
+      routes: {
+        "https://guarded.example/": () => html(challenge, { "cf-mitigated": "challenge" }, 403),
+      },
+    });
+    await expectError(runAudit("guarded.example", net.deps), "bot_blocked", /Twitterbot/);
+  });
+
+  it("recognises a challenge page even without the cf-mitigated header", async () => {
+    const net = fakeNet({
+      routes: {
+        "https://guarded.example/": () =>
+          html(
+            "<html><head><title>Attention Required! | Cloudflare</title></head><body></body></html>",
+            {},
+            503,
+          ),
+      },
+    });
+    await expectError(runAudit("guarded.example", net.deps), "bot_blocked");
+  });
+
+  it("still grades an ordinary 403 page", async () => {
+    const net = fakeNet({
+      routes: {
+        "https://acme.example/private": () =>
+          html("<title>Forbidden</title><h1>No entry</h1>", {}, 403),
+      },
+    });
+    const r = await runAudit("https://acme.example/private", net.deps);
+    expect(r.ok && r.data.status).toBe(403);
+  });
+
   it("still audits an error page and reports its status", async () => {
     const net = fakeNet({
       routes: { "https://acme.example/gone": () => html("<title>Not found</title>", {}, 404) },

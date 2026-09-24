@@ -32,6 +32,8 @@ export function perfectAudit(overrides: Partial<AuditData> = {}): AuditData {
     bodyTextLength: 900,
     emptyRootDiv: false,
     spaTrap: false,
+    builtWithLovable: false,
+    ogImageIsPlaceholder: false,
     htmlBytes: 12_000,
     truncated: false,
     ...overrides,

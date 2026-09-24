@@ -171,6 +171,24 @@ describe("client-rendered shell detection", () => {
   });
 });
 
+describe("builder fingerprints", () => {
+  it("recognises Lovable's legacy template and its stock share image", () => {
+    const d = parseHtml(
+      `<html><head><meta name="author" content="Lovable"><meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png"></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>`,
+      "https://my-app.example/",
+    );
+    expect(d.builtWithLovable).toBe(true);
+    expect(d.ogImageIsPlaceholder).toBe(true);
+  });
+
+  it("recognises a lovable.app host and leaves other sites alone", () => {
+    expect(parseHtml("<html></html>", "https://cool-thing.lovable.app/").builtWithLovable).toBe(
+      true,
+    );
+    expect(parseHtml("<html></html>", "https://acme.example/").builtWithLovable).toBe(false);
+  });
+});
+
 describe("isGenericTitle", () => {
   it.each(["Lovable App", "  vite + react + ts ", "React App", "Untitled", "index"])(
     "flags %j",
