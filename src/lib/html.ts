@@ -136,6 +136,17 @@ export function absoluteHttpUrl(base: string, href: string | null): string | nul
 
 const isAbsoluteHttp = (v: string) => /^https?:\/\//i.test(v);
 
+/** A JS app shell: an empty mount element (or empty body) plus a script bundle that fills it in. */
+function looksLikeClientRenderedShell(rawHtml: string, bodyText: string): boolean {
+  const withoutComments = rawHtml.replace(/<!--[\s\S]*?-->/g, "");
+  const hasBundle = /<script\b[^>]*(\bsrc\s*=|\btype\s*=\s*["']?module)/i.test(withoutComments);
+  const emptyMount =
+    /<(div|main|section)\b[^>]*\bid\s*=\s*["']?(root|app|__next|__nuxt|svelte|___gatsby|main)["']?[^>]*>\s*<\/\1\s*>/i.test(
+      withoutComments,
+    );
+  return hasBundle && (emptyMount || bodyText.length === 0);
+}
+
 export function parseHtml(rawHtml: string, finalUrl: string): ParsedHtml {
   // Comments, scripts, styles and templates can contain tag-like text that bots ignore.
   const html = rawHtml
@@ -199,7 +210,8 @@ export function parseHtml(rawHtml: string, finalUrl: string): ParsedHtml {
     twitterTitle: meta(metas, ["twitter:title"]),
     twitterImage: absoluteHttpUrl(finalUrl, twitterImageRaw),
     bodyTextLength: bodyText.length,
-    emptyRootDiv: bodyText.length < 160,
+    // Short text alone isn't enough: a small static page is not a JS shell.
+    emptyRootDiv: bodyText.length < 160 && looksLikeClientRenderedShell(rawHtml, bodyText),
   };
 }
 

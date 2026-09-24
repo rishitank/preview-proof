@@ -67,11 +67,38 @@ const RESOLVES_PRIVATE =
 const isAbort = (e: unknown, signal: AbortSignal) =>
   signal.aborted || (e instanceof Error && (e.name === "AbortError" || e.name === "TimeoutError"));
 
-async function discard(res: Response) {
+/**
+ * Rejects as soon as `signal` aborts, even if the wrapped promise ignores the signal.
+ * Some runtimes and egress proxies don't abandon an in-flight fetch or body read on abort,
+ * so the deadline has to be enforced here rather than trusted to the platform.
+ */
+export function raceAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) {
+    promise.catch(() => {});
+    return Promise.reject(new DOMException("The operation timed out.", "AbortError"));
+  }
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(new DOMException("The operation timed out.", "AbortError"));
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
+}
+
+/** Releases a response body we don't need. Not awaited: a stuck cancel must not stall the audit. */
+function discard(res: Response) {
   try {
-    await res.body?.cancel();
+    res.body?.cancel().catch(() => {});
   } catch {
-    /* already closed */
+    /* body already locked or closed */
   }
 }
 
@@ -88,7 +115,14 @@ export async function safeFetch(
   let current = start;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     const host = current.hostname.replace(/^\[|\]$/g, "");
-    const addrs = isIpLiteral(host) ? [host] : await deps.resolve(host, signal);
+    let addrs: string[] | null;
+    try {
+      addrs = isIpLiteral(host) ? [host] : await raceAbort(deps.resolve(host, signal), signal);
+    } catch {
+      return signal.aborted
+        ? { ok: false, code: "timeout", message: "timeout" }
+        : { ok: false, code: "fetch_failed", message: UNREACHABLE };
+    }
     if (signal.aborted) return { ok: false, code: "timeout", message: "timeout" };
     if (!addrs) return { ok: false, code: "fetch_failed", message: UNREACHABLE };
     if (!areResolvedAddressesSafe(addrs))
@@ -96,7 +130,10 @@ export async function safeFetch(
 
     let res: Response;
     try {
-      res = await deps.fetch(current.toString(), { ...init, redirect: "manual", signal });
+      res = await raceAbort(
+        deps.fetch(current.toString(), { ...init, redirect: "manual", signal }),
+        signal,
+      );
     } catch (e) {
       return isAbort(e, signal)
         ? { ok: false, code: "timeout", message: "timeout" }
@@ -105,7 +142,7 @@ export async function safeFetch(
 
     const location = res.headers.get("location");
     if (res.status >= 300 && res.status < 400 && location) {
-      await discard(res);
+      discard(res);
       let next: string;
       try {
         next = new URL(location, current).toString();
@@ -131,18 +168,32 @@ export async function safeFetch(
   };
 }
 
-/** Reads at most `limit` bytes of a body, cancelling the rest. */
+/**
+ * Reads at most `limit` bytes of a body, cancelling the rest. If the deadline passes mid-body,
+ * returns what arrived so far (the <head> usually has) and marks the result truncated.
+ */
 export async function readCapped(
   res: Response,
   limit: number,
-): Promise<{ bytes: Uint8Array; truncated: boolean }> {
+  signal: AbortSignal,
+): Promise<{ bytes: Uint8Array; truncated: boolean; timedOut: boolean }> {
   const reader = res.body?.getReader();
-  if (!reader) return { bytes: new Uint8Array(), truncated: false };
+  if (!reader) return { bytes: new Uint8Array(), truncated: false, timedOut: false };
   const chunks: Uint8Array[] = [];
   let total = 0;
   let truncated = false;
+  let timedOut = false;
   for (;;) {
-    const { done, value } = await reader.read();
+    let step: ReadableStreamReadResult<Uint8Array>;
+    try {
+      step = await raceAbort(reader.read(), signal);
+    } catch {
+      truncated = true;
+      timedOut = signal.aborted;
+      reader.cancel().catch(() => {});
+      break;
+    }
+    const { done, value } = step;
     if (done) break;
     const room = limit - total;
     if (value.byteLength > room) {
@@ -165,7 +216,7 @@ export async function readCapped(
     out.set(c, offset);
     offset += c.byteLength;
   }
-  return { bytes: out, truncated };
+  return { bytes: out, truncated, timedOut };
 }
 
 function withTimeout(ms: number) {
@@ -187,7 +238,7 @@ export async function checkAsset(
     const headers = { "user-agent": USER_AGENT, accept };
     let r = await safeFetch(v.url, { method: "HEAD", headers }, t.signal, deps);
     if (r.ok && (r.res.status === 405 || r.res.status === 403 || r.res.status === 501)) {
-      await discard(r.res);
+      discard(r.res);
       // Some servers reject HEAD; fall back to a tiny ranged GET.
       r = await safeFetch(
         v.url,
@@ -205,7 +256,7 @@ export async function checkAsset(
       };
     }
     const res = r.res;
-    await discard(res);
+    discard(res);
     const contentRange = res.headers.get("content-range")?.match(/\/(\d+)$/)?.[1];
     const len = contentRange ?? res.headers.get("content-length");
     const contentType = res.headers.get("content-type");
@@ -232,7 +283,7 @@ export async function runAudit(rawUrl: string, deps: Deps = defaultDeps()): Prom
   const t = withTimeout(PAGE_TIMEOUT_MS);
   const started = deps.now();
   let fetched: SafeFetchResult;
-  let body: { bytes: Uint8Array; truncated: boolean };
+  let body: { bytes: Uint8Array; truncated: boolean; timedOut: boolean };
   try {
     fetched = await safeFetch(
       target,
@@ -259,11 +310,16 @@ export async function runAudit(rawUrl: string, deps: Deps = defaultDeps()): Prom
             : { code: fetched.code, message: fetched.message },
       };
     }
-    body = await readCapped(fetched.res, MAX_BYTES).catch(() => ({
+    body = await readCapped(fetched.res, MAX_BYTES, t.signal).catch(() => ({
       bytes: new Uint8Array(),
       truncated: false,
+      timedOut: false,
     }));
-    if (t.signal.aborted && body.bytes.byteLength === 0) {
+    // A body cut off by the deadline is only worth auditing if the whole <head> arrived.
+    const headArrived = /<\/head\s*>/i.test(
+      new TextDecoder().decode(body.bytes.subarray(0, 256 * 1024)),
+    );
+    if (body.timedOut && !headArrived) {
       return {
         ok: false,
         error: {
