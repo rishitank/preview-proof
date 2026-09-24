@@ -3,6 +3,7 @@ import { Check, ClipboardCopy, Download, Link as LinkIcon, RefreshCw, Wand2 } fr
 import type { Analysis } from "@/lib/analysis";
 import type { AuditData } from "@/lib/audit-types";
 import { combinedPrompt, combinedSnippet, reportMarkdown, shareUrl } from "@/lib/report";
+import { Button } from "@/components/ui/button";
 
 type ActionId = "share" | "html" | "prompt";
 
@@ -57,65 +58,66 @@ export function ResultActions({
     }
   })();
 
-  const btn =
-    "inline-flex items-center gap-2 rounded-xl border border-border bg-surface/70 px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50";
-
   return (
     <div className="flex flex-wrap gap-2" role="group" aria-label="Report actions">
-      <button
+      <Button
         type="button"
-        className={btn}
+        variant="glass"
+        size="action"
         onClick={() => run("share", shareUrl(window.location.origin, data.requestedUrl))}
       >
         {done === "share" ? (
-          <Check className="size-4 text-success" />
+          <Check className="text-success" aria-hidden />
         ) : (
-          <LinkIcon className="size-4" />
+          <LinkIcon aria-hidden />
         )}
         {done === "share" ? "Link copied" : "Share report"}
-      </button>
+      </Button>
       {hasFixes ? (
         <>
-          <button
+          <Button
             type="button"
-            className={btn}
+            variant="glass"
+            size="action"
             onClick={() => run("html", combinedSnippet(analysis.fixes))}
           >
             {done === "html" ? (
-              <Check className="size-4 text-success" />
+              <Check className="text-success" aria-hidden />
             ) : (
-              <ClipboardCopy className="size-4" />
+              <ClipboardCopy aria-hidden />
             )}
             {done === "html" ? "Copied" : "Copy all HTML"}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className={btn}
+            variant="glass"
+            size="action"
             onClick={() => run("prompt", combinedPrompt(analysis.fixes, data.finalUrl))}
           >
             {done === "prompt" ? (
-              <Check className="size-4 text-success" />
+              <Check className="text-success" aria-hidden />
             ) : (
-              <Wand2 className="size-4" />
+              <Wand2 aria-hidden />
             )}
             {done === "prompt" ? "Copied" : "Copy one Lovable prompt"}
-          </button>
+          </Button>
         </>
       ) : null}
-      <button
+      <Button
         type="button"
-        className={btn}
+        variant="glass"
+        size="action"
         onClick={() => download(`previewproof-${host}.md`, reportMarkdown(data, analysis))}
       >
-        <Download className="size-4" />
+        <Download aria-hidden />
         Download report
-      </button>
-      <button type="button" className={btn} onClick={onRecheck} disabled={busy}>
-        <RefreshCw className={`size-4 ${busy ? "animate-spin" : ""}`} />
+      </Button>
+      <Button type="button" variant="glass" size="action" onClick={onRecheck} disabled={busy}>
+        <RefreshCw className={busy ? "animate-spin" : undefined} aria-hidden />
         Check again
-      </button>
+      </Button>
       {failed ? (
-        <p role="status" className="basis-full text-xs text-destructive">
+        <p role="status" className="basis-full text-xs text-destructive-strong">
           Your browser blocked clipboard access. Select the text in the fix below and copy it
           manually.
         </p>

@@ -118,14 +118,30 @@ describe("FixList", () => {
     expect(writeText).toHaveBeenLastCalledWith(fixes[0]!.prompt);
   });
 
-  it("does not crash when the clipboard is unavailable", async () => {
+  it("tells the user when the clipboard is blocked instead of failing silently", async () => {
     Object.assign(navigator, {
       clipboard: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
     });
     const { fixes, passed } = analyse(perfectAudit({ title: null }));
     render(<FixList fixes={fixes} passed={passed} />);
     await act(async () => fireEvent.click(screen.getByRole("button", { name: /Copy HTML/ })));
-    expect(screen.getByRole("button", { name: /Copy HTML/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Copy blocked/ })).toBeTruthy();
+  });
+
+  it("fix cards are accessible disclosures: critical open, others closed, aria-controls wired", async () => {
+    const { fixes, passed } = analyse(perfectAudit({ title: null, canonical: null }));
+    render(<FixList fixes={fixes} passed={passed} />);
+    const critical = screen.getByRole("button", { name: /No page title/ });
+    const nice = screen.getByRole("button", { name: /No canonical link/ });
+    expect(critical.getAttribute("aria-expanded")).toBe("true");
+    expect(nice.getAttribute("aria-expanded")).toBe("false");
+    const panel = document.getElementById(critical.getAttribute("aria-controls")!);
+    expect(panel?.textContent).toMatch(/Paste this into your page head/);
+    await act(async () => fireEvent.click(nice));
+    expect(nice.getAttribute("aria-expanded")).toBe("true");
+    expect(document.getElementById(nice.getAttribute("aria-controls")!)?.textContent).toMatch(
+      /canonical/,
+    );
   });
 
   it("celebrates a perfect page", () => {

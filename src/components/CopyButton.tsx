@@ -1,38 +1,42 @@
 import { useEffect, useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-export function CopyButton({
-  value,
-  label = "Copy",
-  className = "",
-}: {
-  value: string;
-  label?: string;
-  className?: string;
-}) {
-  const [copied, setCopied] = useState(false);
+type State = "idle" | "copied" | "failed";
+
+export function CopyButton({ value, label = "Copy" }: { value: string; label?: string }) {
+  const [state, setState] = useState<State>("idle");
 
   useEffect(() => {
-    if (!copied) return;
-    const t = setTimeout(() => setCopied(false), 1800);
+    if (state === "idle") return;
+    const t = setTimeout(() => setState("idle"), 1800);
     return () => clearTimeout(t);
-  }, [copied]);
+  }, [state]);
 
   return (
-    <button
+    <Button
       type="button"
+      variant="subtle"
+      size="compact"
+      className="shrink-0"
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(value);
-          setCopied(true);
+          setState("copied");
         } catch {
-          setCopied(false);
+          // Clipboard blocked (permissions, insecure context): say so instead of failing silently.
+          setState("failed");
         }
       }}
-      className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground ${className}`}
     >
-      {copied ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
-      {copied ? "Copied" : label}
-    </button>
+      {state === "copied" ? (
+        <Check className="text-success" aria-hidden />
+      ) : state === "failed" ? (
+        <X className="text-destructive-strong" aria-hidden />
+      ) : (
+        <Copy aria-hidden />
+      )}
+      {state === "copied" ? "Copied" : state === "failed" ? "Copy blocked" : label}
+    </Button>
   );
 }

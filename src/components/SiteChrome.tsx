@@ -1,3 +1,5 @@
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./ThemeToggle";
 
 export function Logo() {
@@ -19,13 +21,13 @@ export function SiteHeader() {
         <nav aria-label="Main" className="flex items-center gap-1 sm:gap-2">
           <a
             href="#how-it-works"
-            className="hidden rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:inline-block"
+            className={cn(buttonVariants({ variant: "nav", size: "nav" }), "hidden sm:inline-flex")}
           >
             How it works
           </a>
           <a
             href="#what-we-check"
-            className="hidden rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:inline-block"
+            className={cn(buttonVariants({ variant: "nav", size: "nav" }), "hidden sm:inline-flex")}
           >
             What we check
           </a>

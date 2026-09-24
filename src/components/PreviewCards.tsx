@@ -110,7 +110,7 @@ function GoogleResult({ d }: { d: AuditData }) {
     >
       <div className="rounded-xl bg-surface p-4">
         {d.noindex ? (
-          <p className="text-sm text-destructive">
+          <p className="text-sm text-destructive-strong">
             This page won't appear in Google at all: it carries a “noindex” instruction.
           </p>
         ) : (
@@ -136,7 +136,7 @@ function GoogleResult({ d }: { d: AuditData }) {
                 </div>
               </div>
             </div>
-            <p className="mt-2 line-clamp-1 text-lg text-[#1a0dab] underline-offset-2 hover:underline dark:text-[#8ab4f8]">
+            <p className="mt-2 line-clamp-1 text-lg text-platform-google-link underline-offset-2 hover:underline">
               {title ?? <Fallback>{site}</Fallback>}
             </p>
             <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
@@ -166,7 +166,7 @@ function XCard({ d }: { d: AuditData }) {
       <Shell name="X (Twitter)" note="No card tags, so it posts as a bare link">
         <div className="rounded-xl bg-surface p-4 text-sm">
           <p className="text-foreground">Just shipped something new →</p>
-          <p className="mt-1 break-all text-[#0b6cb0] dark:text-[#4aa8f0]">{d.finalUrl}</p>
+          <p className="mt-1 break-all text-platform-x-link">{d.finalUrl}</p>
           <p className="mt-3 text-xs text-muted-foreground">
             No preview card appears. The link sits in the post as plain blue text.
           </p>
@@ -266,7 +266,7 @@ function SlackUnfurl({ d }: { d: AuditData }) {
             )}
             <span className="text-xs font-semibold">{site}</span>
           </div>
-          <p className="mt-1 line-clamp-2 text-sm font-semibold text-[#1264a3] dark:text-[#7cc3ff]">
+          <p className="mt-1 line-clamp-2 text-sm font-semibold text-platform-slack-link">
             {title ?? <Fallback>{d.finalUrl}</Fallback>}
           </p>
           <p className="mt-0.5 line-clamp-3 text-sm text-muted-foreground">
@@ -302,11 +302,11 @@ function ChatBubble({ d }: { d: AuditData }) {
       note={!img ? "Compact text link" : heavy ? "WhatsApp may drop the image" : "Rich link bubble"}
     >
       <div className="flex justify-end">
-        <div className="w-full max-w-xs overflow-hidden rounded-2xl bg-[#e9e9eb] text-[#111] shadow-sm dark:bg-secondary dark:text-foreground">
+        <div className="w-full max-w-xs overflow-hidden rounded-2xl bg-platform-imessage-bubble text-platform-imessage-text shadow-sm">
           {img ? (
             <ImageBox src={img} />
           ) : (
-            <div className="flex aspect-[3/1] items-center justify-center bg-[#d7d7db] dark:bg-muted">
+            <div className="flex aspect-[3/1] items-center justify-center bg-platform-imessage-media">
               <Link2 className="size-6 text-muted-foreground" />
             </div>
           )}
@@ -322,7 +322,7 @@ function ChatBubble({ d }: { d: AuditData }) {
         </div>
       </div>
       {heavy ? (
-        <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-800 dark:text-amber-200">
+        <p className="mt-2 flex items-start gap-1.5 text-xs text-warning-strong">
           <MessageCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
           Your image is over 600 KB. iMessage will still show it, but WhatsApp often skips images
           that large and sends a plain link instead.
