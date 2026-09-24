@@ -284,7 +284,7 @@ function ChatBubble({ d }: { d: AuditData }) {
 
 export function PreviewCards({ data }: { data: AuditData }) {
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid items-start gap-4 md:grid-cols-2">
       <GoogleResult d={data} />
       <XCard d={data} />
       <LinkedInPost d={data} />
