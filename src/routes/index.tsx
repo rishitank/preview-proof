@@ -30,7 +30,7 @@ import { loadRecent, saveRecent, type RecentCheck } from "@/lib/recent";
 
 const TITLE = "PreviewProof: see how your app looks when people share it";
 const DESCRIPTION =
-  "Paste a public URL and see the exact Google, X, LinkedIn, Slack and WhatsApp previews your app produces today, what's broken, and copy-paste fixes.";
+  "Paste a public URL and see the Google, X, LinkedIn, Slack and WhatsApp previews your app produces today, what's broken, and copy-paste fixes.";
 
 export const Route = createFileRoute("/")({
   head: () => ({

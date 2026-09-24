@@ -105,10 +105,12 @@ test.describe("PreviewProof", () => {
   }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
+    await expect(page.locator('meta[name="theme-color"]')).toHaveCount(1);
     await page.getByRole("button", { name: /Switch to dark theme/ }).click();
     await expect(page.locator("html")).toHaveClass(/dark/);
     await page.reload({ waitUntil: "commit" });
     await expect(page.locator("html")).toHaveClass(/dark/);
+    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#081619");
     const { violations } = await new AxeBuilder({ page }).withTags(["wcag2aa"]).analyze();
     expect(violations.filter((v) => v.id === "color-contrast").map((v) => v.nodes.length)).toEqual(
       [],

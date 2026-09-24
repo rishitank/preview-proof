@@ -13,7 +13,7 @@ import appCss from "../styles.css?url";
 import displayFont from "@fontsource/space-grotesk/files/space-grotesk-latin-700-normal.woff2?url";
 import bodyFont from "@fontsource/dm-sans/files/dm-sans-latin-400-normal.woff2?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { themeBootScript } from "../components/ThemeToggle";
+import { THEME_COLORS, themeBootScript } from "../components/ThemeToggle";
 
 function NotFoundComponent() {
   return (
@@ -81,8 +81,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { name: "color-scheme", content: "light dark" },
-      { name: "theme-color", media: "(prefers-color-scheme: light)", content: "#fcfaf1" },
-      { name: "theme-color", media: "(prefers-color-scheme: dark)", content: "#081619" },
+      // One tag (the head de-duplicates by name); the theme script sets it to the active theme.
+      { name: "theme-color", content: THEME_COLORS.light },
       { title: "PreviewProof" },
       {
         name: "description",
