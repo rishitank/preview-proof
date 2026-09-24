@@ -226,25 +226,129 @@ export function parseHtml(html: string, finalUrl: string) {
   };
 }
 
+/* ---------------- SSRF-safe fetching ---------------- */
+
+const MAX_REDIRECTS = 5;
+
+/**
+ * Pure check used after DNS resolution: true only when there is at least one
+ * address and none of them is private, loopback, link-local or reserved.
+ */
+export function areResolvedAddressesSafe(addresses: string[]): boolean {
+  if (addresses.length === 0) return false;
+  return addresses.every((a) => !isPrivateIPv4(a) && !isPrivateIPv6(a));
+}
+
+function isIpLiteral(host: string): boolean {
+  const h = host.replace(/^\[|\]$/g, "");
+  return /^\d{1,3}(\.\d{1,3}){3}$/.test(h) || h.includes(":");
+}
+
+/** Resolves A + AAAA via DNS-over-HTTPS. Returns null when resolution fails. */
+async function resolveHost(host: string, signal: AbortSignal): Promise<string[] | null> {
+  if (isIpLiteral(host)) return [host.replace(/^\[|\]$/g, "")];
+  try {
+    const lookups = await Promise.all(
+      (["A", "AAAA"] as const).map(async (type) => {
+        const res = await fetch(
+          `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(host)}&type=${type}`,
+          { headers: { accept: "application/dns-json" }, signal },
+        );
+        if (!res.ok) throw new Error("DoH failed");
+        const json = (await res.json()) as { Status?: number; Answer?: { type: number; data: string }[] };
+        if (json.Status !== 0 && json.Status !== 3) throw new Error("DoH error");
+        return (json.Answer ?? []).filter((r) => r.type === 1 || r.type === 28).map((r) => r.data);
+      }),
+    );
+    const all = lookups.flat();
+    return all.length ? all : null;
+  } catch {
+    return null;
+  }
+}
+
+type SafeFetchResult =
+  | { ok: true; res: Response; finalUrl: string }
+  | { ok: false; code: "blocked_host" | "blocked_port" | "invalid_url" | "fetch_failed" | "timeout"; message: string };
+
+const FETCH_FAILED_MSG = "We couldn't reach that page. Check the address is public and live.";
+
+/** Fetches with manual redirects (max 5), validating URL + DNS on every hop. */
+async function safeFetch(start: URL, init: RequestInit, signal: AbortSignal): Promise<SafeFetchResult> {
+  let current = start;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    const addrs = await resolveHost(current.hostname, signal);
+    if (signal.aborted) return { ok: false, code: "timeout", message: "timeout" };
+    if (!addrs) return { ok: false, code: "fetch_failed", message: FETCH_FAILED_MSG };
+    if (!areResolvedAddressesSafe(addrs)) {
+      return {
+        ok: false,
+        code: "blocked_host",
+        message: "That address resolves to a private or local machine, so nobody on the internet could load it.",
+      };
+    }
+
+    let res: Response;
+    try {
+      res = await fetch(current.toString(), { ...init, redirect: "manual", signal });
+    } catch (e) {
+      const aborted = e instanceof Error && (e.name === "AbortError" || /abort/i.test(e.message));
+      return aborted
+        ? { ok: false, code: "timeout", message: "timeout" }
+        : { ok: false, code: "fetch_failed", message: FETCH_FAILED_MSG };
+    }
+
+    const location = res.headers.get("location");
+    if (res.status >= 300 && res.status < 400 && location) {
+      try {
+        await res.body?.cancel();
+      } catch {
+        /* ignore */
+      }
+      let next: string;
+      try {
+        next = new URL(location, current).toString();
+      } catch {
+        return { ok: false, code: "fetch_failed", message: FETCH_FAILED_MSG };
+      }
+      const v = validateTargetUrl(next);
+      if (!v.ok) return { ok: false, code: v.code, message: `A redirect was blocked: ${v.message}` };
+      current = v.url;
+      continue;
+    }
+    return { ok: true, res, finalUrl: current.toString() };
+  }
+  return { ok: false, code: "fetch_failed", message: "The page redirected more than 5 times." };
+}
+
 /* ---------------- server function ---------------- */
 
 async function headCheck(url: string): Promise<ImageCheck> {
+  const v = validateTargetUrl(url);
+  if (!v.ok) return { ok: false, error: "blocked" };
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    let res = await fetch(url, {
-      method: "HEAD",
-      redirect: "follow",
-      signal: controller.signal,
-      headers: { "user-agent": UA, accept: "image/*,*/*" },
-    });
-    if (res.status === 405 || res.status === 501) {
-      res = await fetch(url, {
-        method: "GET",
-        redirect: "follow",
-        signal: controller.signal,
-        headers: { "user-agent": UA, accept: "image/*,*/*", range: "bytes=0-1024" },
-      });
+    let r = await safeFetch(
+      v.url,
+      { method: "HEAD", headers: { "user-agent": UA, accept: "image/*,*/*" } },
+      controller.signal,
+    );
+    if (r.ok && (r.res.status === 405 || r.res.status === 501)) {
+      r = await safeFetch(
+        v.url,
+        { method: "GET", headers: { "user-agent": UA, accept: "image/*,*/*", range: "bytes=0-1024" } },
+        controller.signal,
+      );
+    }
+    if (!r.ok) {
+      return { ok: false, error: r.code === "blocked_host" || r.code === "blocked_port" || r.code === "invalid_url" ? "blocked" : r.message };
+    }
+    const res = r.res;
+    try {
+      await res.body?.cancel();
+    } catch {
+      /* ignore */
     }
     const len = res.headers.get("content-length");
     return {
@@ -273,33 +377,31 @@ export const auditUrl = createServerFn({ method: "POST" })
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
     const started = Date.now();
 
-    let res: Response;
-    try {
-      res = await fetch(target.toString(), {
+    const fetched = await safeFetch(
+      target,
+      {
         method: "GET",
-        redirect: "follow",
-        signal: controller.signal,
         headers: {
           "user-agent": UA,
           accept: "text/html,application/xhtml+xml",
           "accept-language": "en",
         },
-      });
-    } catch (e) {
+      },
+      controller.signal,
+    );
+    if (!fetched.ok) {
       clearTimeout(timer);
-      const aborted = e instanceof Error && (e.name === "AbortError" || /abort/i.test(e.message));
       return {
         ok: false,
-        error: aborted
-          ? { code: "timeout", message: "The page took longer than 8 seconds to answer. Sharing bots give up too." }
-          : {
-              code: "fetch_failed",
-              message: "We couldn't reach that page. Check the address is public and live.",
-            },
+        error:
+          fetched.code === "timeout"
+            ? { code: "timeout", message: "The page took longer than 8 seconds to answer. Sharing bots give up too." }
+            : { code: fetched.code, message: fetched.message },
       };
     }
+    const res = fetched.res;
 
-    const finalUrl = res.url || target.toString();
+    const finalUrl = fetched.finalUrl;
     const contentType = res.headers.get("content-type");
 
     // Read at most 2 MB
