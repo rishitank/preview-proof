@@ -56,7 +56,8 @@ jobs:
       contents: read
       pull-requests: write
     with:
-      node-version: "22"
-      install: npm i -g bun@1.3.13 && bun install --frozen-lockfile
-      build: bun run build
+      # Node comes from .nvmrc. `install` is word-split, not run by a shell, so it must be
+      # a single command; `build` runs as a script, so the bun install happens there.
+      install: npm i -g bun@1.3.13
+      build: bun install --frozen-lockfile && bun run build
       strict: true

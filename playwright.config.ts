@@ -26,6 +26,7 @@ export default defineConfig({
           command: `bunx vite dev --host 127.0.0.1 --port ${port} --strictPort`,
           url: `http://127.0.0.1:${port}`,
           reuseExistingServer: !process.env["CI"],
+          env: { PREVIEWPROOF_FAKE_NET: "1" },
           timeout: 60_000,
         },
       }),
