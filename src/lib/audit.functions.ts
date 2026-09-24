@@ -401,7 +401,7 @@ export const auditUrl = createServerFn({ method: "POST" })
     }
     const res = fetched.res;
 
-    const finalUrl = res.url || target.toString();
+    const finalUrl = fetched.finalUrl;
     const contentType = res.headers.get("content-type");
 
     // Read at most 2 MB
