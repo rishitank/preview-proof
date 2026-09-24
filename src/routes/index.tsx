@@ -134,6 +134,9 @@ function LoadingPanel() {
   );
 }
 
+const fixCountText = (n: number) =>
+  n === 0 ? "Nothing to fix." : n === 1 ? "1 thing to fix." : `${n} things to fix.`;
+
 function Index() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/" });
@@ -342,7 +345,7 @@ function Index() {
             {mutation.isPending
               ? "Checking the link."
               : result?.ok && analysis
-                ? `Check finished. Score ${analysis.score} out of 100. ${analysis.fixes.length} things to fix.`
+                ? `Check finished. Score ${analysis.score} out of 100. ${fixCountText(analysis.fixes.length)}`
                 : result && !result.ok
                   ? "We couldn't check that link."
                   : mutation.isError

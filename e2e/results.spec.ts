@@ -24,6 +24,9 @@ test.describe("Results", () => {
       page.getByRole("heading", { name: /looks great wherever it lands/ }),
     ).toBeVisible();
     await expect(page.getByText("Score: 100 out of 100")).toBeAttached();
+    await expect(page.getByRole("status")).toHaveText(
+      "Check finished. Score 100 out of 100. Nothing to fix.",
+    );
     for (const name of ["Google search result", "X (Twitter)", "LinkedIn post", "Slack unfurl"]) {
       await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
     }
