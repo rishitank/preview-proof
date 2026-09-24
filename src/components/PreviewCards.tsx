@@ -69,7 +69,7 @@ function ImageBox({ src, ratio = "aspect-[1.91/1]" }: { src: string | null; rati
         className={`flex ${ratio} w-full items-center justify-center gap-2 bg-secondary text-xs text-muted-foreground`}
       >
         <ImageOff className="size-4" />
-        No image — platform shows a text-only link
+        No image, so the platform shows a text-only link
       </div>
     );
   }
@@ -111,7 +111,7 @@ function GoogleResult({ d }: { d: AuditData }) {
       <div className="rounded-xl bg-surface p-4">
         {d.noindex ? (
           <p className="text-sm text-destructive">
-            This page won't appear in Google at all — it carries a “noindex” instruction.
+            This page won't appear in Google at all: it carries a “noindex” instruction.
           </p>
         ) : (
           <div className="max-w-xl">
@@ -142,7 +142,7 @@ function GoogleResult({ d }: { d: AuditData }) {
             <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
               {desc ?? (
                 <Fallback>
-                  Google guesses a snippet from whatever text it finds on the page — often the wrong
+                  Google guesses a snippet from whatever text it finds on the page, often the wrong
                   sentence.
                 </Fallback>
               )}
@@ -163,7 +163,7 @@ function XCard({ d }: { d: AuditData }) {
 
   if (!d.twitterCard && !d.ogTitle && !img) {
     return (
-      <Shell name="X (Twitter)" note="No card tags — posts as a bare link">
+      <Shell name="X (Twitter)" note="No card tags, so it posts as a bare link">
         <div className="rounded-xl bg-surface p-4 text-sm">
           <p className="text-foreground">Just shipped something new →</p>
           <p className="mt-1 break-all text-[#0b6cb0] dark:text-[#4aa8f0]">{d.finalUrl}</p>
@@ -190,8 +190,8 @@ function XCard({ d }: { d: AuditData }) {
                 {title ?? <Fallback>{site}</Fallback>}
               </p>
               <p className="line-clamp-2 text-sm text-muted-foreground">
-                {d.ogDescription ?? d.description ?? (
-                  <Fallback>No description — X leaves this line blank.</Fallback>
+                {d.twitterDescription ?? d.ogDescription ?? d.description ?? (
+                  <Fallback>No description, so X leaves this line blank.</Fallback>
                 )}
               </p>
             </div>
@@ -207,7 +207,9 @@ function XCard({ d }: { d: AuditData }) {
                 {title ?? <Fallback>{site}</Fallback>}
               </p>
               <p className="line-clamp-2 text-sm text-muted-foreground">
-                {d.ogDescription ?? d.description ?? <Fallback>No description shown.</Fallback>}
+                {d.twitterDescription ?? d.ogDescription ?? d.description ?? (
+                  <Fallback>No description shown.</Fallback>
+                )}
               </p>
             </div>
           </div>
@@ -224,7 +226,7 @@ function LinkedInPost({ d }: { d: AuditData }) {
   const title = d.ogTitle ?? d.title;
 
   return (
-    <Shell name="LinkedIn post" note={img ? "Image card" : "No image — small grey card"}>
+    <Shell name="LinkedIn post" note={img ? "Image card" : "No image, so a small grey card"}>
       <div className="overflow-hidden rounded-lg border border-border bg-surface">
         <ImageBox src={img} />
         <div className="p-3">
@@ -235,7 +237,7 @@ function LinkedInPost({ d }: { d: AuditData }) {
         </div>
       </div>
       <p className="mt-2 text-xs text-muted-foreground">
-        LinkedIn ignores the description in feed posts — the title and image do all the work.
+        LinkedIn ignores the description in feed posts: the title and image do all the work.
       </p>
     </Shell>
   );
@@ -269,7 +271,7 @@ function SlackUnfurl({ d }: { d: AuditData }) {
           </p>
           <p className="mt-0.5 line-clamp-3 text-sm text-muted-foreground">
             {d.ogDescription ?? d.description ?? (
-              <Fallback>Nothing here — Slack shows just the link and a colour bar.</Fallback>
+              <Fallback>Nothing here, so Slack shows just the link and a colour bar.</Fallback>
             )}
           </p>
           {img ? (
@@ -297,11 +299,11 @@ function ChatBubble({ d }: { d: AuditData }) {
   return (
     <Shell
       name="iMessage & WhatsApp"
-      note={img && !heavy ? "Rich link bubble" : "Compact text link"}
+      note={!img ? "Compact text link" : heavy ? "WhatsApp may drop the image" : "Rich link bubble"}
     >
       <div className="flex justify-end">
         <div className="w-full max-w-xs overflow-hidden rounded-2xl bg-[#e9e9eb] text-[#111] shadow-sm dark:bg-secondary dark:text-foreground">
-          {img && !heavy ? (
+          {img ? (
             <ImageBox src={img} />
           ) : (
             <div className="flex aspect-[3/1] items-center justify-center bg-[#d7d7db] dark:bg-muted">
@@ -320,9 +322,10 @@ function ChatBubble({ d }: { d: AuditData }) {
         </div>
       </div>
       {heavy ? (
-        <p className="mt-2 flex items-start gap-1.5 text-xs text-warning-foreground">
-          <MessageCircle className="mt-0.5 size-3.5 shrink-0" />
-          Your image is over 600 KB, so WhatsApp will likely skip it and send the plain link.
+        <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-800 dark:text-amber-200">
+          <MessageCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+          Your image is over 600 KB. iMessage will still show it, but WhatsApp often skips images
+          that large and sends a plain link instead.
         </p>
       ) : null}
     </Shell>

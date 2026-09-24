@@ -22,7 +22,7 @@ const STEPS = [
   {
     Icon: ScanSearch,
     title: "Fetch like a bot",
-    body: "We request your page the way Slack, X and LinkedIn do: no JavaScript, same timeouts, following redirects.",
+    body: "We request your page the way Slack, X and LinkedIn do: no JavaScript, a strict time limit, and redirects followed.",
   },
   {
     Icon: Share2,

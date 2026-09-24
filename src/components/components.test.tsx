@@ -49,7 +49,7 @@ describe("PreviewCards", () => {
       />,
     );
     expect(within(card("X (Twitter)")).getByText(/posts as a bare link/i)).toBeTruthy();
-    expect(within(card("LinkedIn post")).getByText("No image — small grey card")).toBeTruthy();
+    expect(within(card("LinkedIn post")).getByText("No image, so a small grey card")).toBeTruthy();
     expect(
       within(card("Google search result")).getByText(/Google guesses a snippet/i),
     ).toBeTruthy();

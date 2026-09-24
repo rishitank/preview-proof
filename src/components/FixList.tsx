@@ -2,7 +2,14 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { AlertTriangle, ChevronDown, CircleAlert, Sparkles, CheckCircle2 } from "lucide-react";
 import { CopyButton } from "./CopyButton";
-import type { Fix, Severity } from "@/lib/analysis";
+import type { Fix, Placement, Severity } from "@/lib/analysis";
+
+const PLACEMENT_LABEL: Record<Placement, string> = {
+  head: "Paste this into your page head",
+  body: "Add this to the page body",
+  html: "Set this on the opening <html> tag",
+  none: "What needs to change",
+};
 
 const META: Record<
   Severity,
@@ -69,9 +76,11 @@ function FixCard({ fix }: { fix: Fix }) {
               <div>
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Paste this into your page head
+                    {PLACEMENT_LABEL[fix.placement ?? "head"]}
                   </h4>
-                  <CopyButton value={fix.snippet} label="Copy HTML" />
+                  {fix.placement === "none" ? null : (
+                    <CopyButton value={fix.snippet} label="Copy HTML" />
+                  )}
                 </div>
                 <pre
                   tabIndex={0}
