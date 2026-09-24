@@ -12,7 +12,9 @@ function hostOf(url: string) {
 function pathOf(url: string) {
   try {
     const u = new URL(url);
-    return u.pathname === "/" ? "" : u.pathname.replace(/\/$/, "").split("/").filter(Boolean).join(" › ");
+    return u.pathname === "/"
+      ? ""
+      : u.pathname.replace(/\/$/, "").split("/").filter(Boolean).join(" › ");
   } catch {
     return "";
   }
@@ -51,7 +53,9 @@ function Shell({
 function ImageBox({ src, ratio = "aspect-[1.91/1]" }: { src: string | null; ratio?: string }) {
   if (!src) {
     return (
-      <div className={`flex ${ratio} w-full items-center justify-center gap-2 bg-secondary text-xs text-muted-foreground`}>
+      <div
+        className={`flex ${ratio} w-full items-center justify-center gap-2 bg-secondary text-xs text-muted-foreground`}
+      >
         <ImageOff className="size-4" />
         No image — platform shows a text-only link
       </div>
@@ -78,7 +82,11 @@ function GoogleResult({ d }: { d: AuditData }) {
   return (
     <Shell
       name="Google search result"
-      note={d.noindex ? "Blocked: this page asks not to be indexed" : "Uses <title> and meta description"}
+      note={
+        d.noindex
+          ? "Blocked: this page asks not to be indexed"
+          : "Uses <title> and meta description"
+      }
     >
       <div className="rounded-xl bg-surface p-4">
         {d.noindex ? (
@@ -90,7 +98,12 @@ function GoogleResult({ d }: { d: AuditData }) {
             <div className="flex items-center gap-2">
               <div className="flex size-6 items-center justify-center overflow-hidden rounded-full border border-border bg-surface">
                 {d.favicon ? (
-                  <img src={d.favicon} alt="" className="size-4 object-contain" referrerPolicy="no-referrer" />
+                  <img
+                    src={d.favicon}
+                    alt=""
+                    className="size-4 object-contain"
+                    referrerPolicy="no-referrer"
+                  />
                 ) : (
                   <Globe className="size-3.5 text-muted-foreground" />
                 )}
@@ -109,7 +122,8 @@ function GoogleResult({ d }: { d: AuditData }) {
             <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
               {desc ?? (
                 <Fallback>
-                  Google guesses a snippet from whatever text it finds on the page — often the wrong sentence.
+                  Google guesses a snippet from whatever text it finds on the page — often the wrong
+                  sentence.
                 </Fallback>
               )}
             </p>
@@ -152,9 +166,13 @@ function XCard({ d }: { d: AuditData }) {
             <ImageBox src={img} />
             <div className="border-t border-border p-3">
               <p className="text-xs text-muted-foreground">{site}</p>
-              <p className="mt-0.5 line-clamp-1 text-sm font-medium">{title ?? <Fallback>{site}</Fallback>}</p>
+              <p className="mt-0.5 line-clamp-1 text-sm font-medium">
+                {title ?? <Fallback>{site}</Fallback>}
+              </p>
               <p className="line-clamp-2 text-sm text-muted-foreground">
-                {d.ogDescription ?? d.description ?? <Fallback>No description — X leaves this line blank.</Fallback>}
+                {d.ogDescription ?? d.description ?? (
+                  <Fallback>No description — X leaves this line blank.</Fallback>
+                )}
               </p>
             </div>
           </>
@@ -165,7 +183,9 @@ function XCard({ d }: { d: AuditData }) {
             </div>
             <div className="min-w-0 p-3">
               <p className="text-xs text-muted-foreground">{site}</p>
-              <p className="mt-0.5 line-clamp-1 text-sm font-medium">{title ?? <Fallback>{site}</Fallback>}</p>
+              <p className="mt-0.5 line-clamp-1 text-sm font-medium">
+                {title ?? <Fallback>{site}</Fallback>}
+              </p>
               <p className="line-clamp-2 text-sm text-muted-foreground">
                 {d.ogDescription ?? d.description ?? <Fallback>No description shown.</Fallback>}
               </p>
@@ -213,7 +233,12 @@ function SlackUnfurl({ d }: { d: AuditData }) {
         <div className="border-l-4 border-primary pl-3">
           <div className="flex items-center gap-2">
             {d.favicon ? (
-              <img src={d.favicon} alt="" className="size-4 rounded-sm object-contain" referrerPolicy="no-referrer" />
+              <img
+                src={d.favicon}
+                alt=""
+                className="size-4 rounded-sm object-contain"
+                referrerPolicy="no-referrer"
+              />
             ) : (
               <Globe className="size-4 text-muted-foreground" />
             )}
@@ -264,7 +289,9 @@ function ChatBubble({ d }: { d: AuditData }) {
             </div>
           )}
           <div className="p-3">
-            <p className="line-clamp-2 text-sm font-medium">{title ?? <Fallback>{site}</Fallback>}</p>
+            <p className="line-clamp-2 text-sm font-medium">
+              {title ?? <Fallback>{site}</Fallback>}
+            </p>
             <p className="line-clamp-1 text-xs opacity-70">
               {d.ogDescription ?? d.description ?? "No description"}
             </p>
