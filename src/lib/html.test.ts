@@ -243,7 +243,7 @@ describe("isGenericTitle", () => {
 describe("decodeEntities", () => {
   it("decodes named, decimal and hex entities and leaves unknown ones alone", () => {
     expect(decodeEntities("&amp;&lt;&gt;&quot;&#39;&#x27;&nbsp;&mdash;&#128640;&bogus;")).toBe(
-      "&<>\"'' —🚀&bogus;",
+      "&<>\"''\u00a0—🚀&bogus;",
     );
   });
 
@@ -254,7 +254,7 @@ describe("decodeEntities", () => {
   });
 
   it("turns NUL, surrogates and out-of-range code points into U+FFFD, like browsers", () => {
-    expect(decodeEntities("a&#0;b&#xD800;c&#99999999;")).toBe("a�b�c�");
+    expect(decodeEntities("a&#0;b&#xD800;c&#99999999;")).toBe("a\uFFFDb\uFFFDc\uFFFD");
   });
 });
 

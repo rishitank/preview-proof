@@ -101,7 +101,7 @@ export function decodeEntities(s: string): string {
           : parseInt(body.slice(1), 10);
       if (!Number.isFinite(code)) return whole;
       // As browsers do: NUL, surrogates and out-of-range values become the replacement character.
-      if (code === 0 || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff)) return "�";
+      if (code === 0 || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff)) return "\uFFFD";
       return String.fromCodePoint(code);
     }
     return NAMED_ENTITIES[body] ?? NAMED_ENTITIES[body.toLowerCase()] ?? whole;
