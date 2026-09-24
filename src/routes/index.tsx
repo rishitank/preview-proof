@@ -27,6 +27,8 @@ import { Landing } from "@/components/Landing";
 import { ResultActions } from "@/components/ResultActions";
 import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import { loadRecent, saveRecent, type RecentCheck } from "@/lib/recent";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
 
 const TITLE = "PreviewProof: see how your app looks when people share it";
 const DESCRIPTION =
@@ -280,15 +282,15 @@ function Index() {
                 disabled={mutation.isPending}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-brand px-5 py-3 text-base font-semibold text-primary-foreground shadow-soft disabled:cursor-not-allowed disabled:opacity-60"
+                className={buttonVariants({ variant: "brand", size: "cta" })}
               >
                 {mutation.isPending ? (
                   <>
-                    <Loader2 className="size-4 animate-spin" aria-hidden /> Checking…
+                    <Loader2 className="animate-spin" aria-hidden /> Checking…
                   </>
                 ) : (
                   <>
-                    Check my app <ArrowRight className="size-4" aria-hidden />
+                    Check my app <ArrowRight aria-hidden />
                   </>
                 )}
               </motion.button>
@@ -299,30 +301,33 @@ function Index() {
                   <History className="size-3.5" aria-hidden />
                   <span>Recent:</span>
                   {recent.map((r) => (
-                    <button
+                    <Button
                       key={r.url}
                       type="button"
+                      variant="chip"
+                      size="chip"
                       onClick={() => check(r.url)}
                       title={r.url}
-                      className="inline-flex max-w-[16rem] items-center gap-1 rounded-full border border-border bg-surface/60 px-2.5 py-1 font-medium text-foreground transition-colors hover:bg-secondary"
+                      className="max-w-[16rem]"
                     >
                       <span className="truncate">{displayHost(r.url)}</span>
                       <span className="text-muted-foreground">· {r.score}</span>
-                    </button>
+                    </Button>
                   ))}
                 </>
               ) : (
                 <>
                   <span>Try:</span>
                   {EXAMPLES.map((ex) => (
-                    <button
+                    <Button
                       key={ex}
                       type="button"
+                      variant="chip"
+                      size="chip"
                       onClick={() => check(ex)}
-                      className="rounded-full border border-border bg-surface/60 px-2.5 py-1 font-medium text-foreground transition-colors hover:bg-secondary"
                     >
                       {ex}
-                    </button>
+                    </Button>
                   ))}
                 </>
               )}
@@ -362,7 +367,7 @@ function Index() {
                 {...fadeUp}
                 className="glass rounded-2xl border-destructive/40 p-6"
               >
-                <h2 className="font-display text-lg font-bold text-destructive">
+                <h2 className="font-display text-lg font-bold text-destructive-strong">
                   Something went wrong
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -385,15 +390,17 @@ function Index() {
                           <p className="mt-1 text-sm text-muted-foreground">
                             {result.error.message}
                           </p>
-                          <button
+                          <Button
                             type="button"
+                            variant="glass"
+                            size="action"
+                            className="mt-4"
                             onClick={() =>
                               mutation.variables && mutation.mutate(mutation.variables)
                             }
-                            className="mt-4 inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary"
                           >
-                            <RefreshCw className="size-4" aria-hidden /> Try again
-                          </button>
+                            <RefreshCw aria-hidden /> Try again
+                          </Button>
                         </div>
                       </div>
                     </motion.div>
@@ -412,13 +419,13 @@ function Index() {
                       {result.data.redirected ? " (after redirect)" : ""}
                     </p>
                     <div className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start">
-                      <Pill>HTTP {result.data.status}</Pill>
-                      <Pill>{result.data.responseTimeMs} ms</Pill>
-                      <Pill>
+                      <Badge variant="secondary">HTTP {result.data.status}</Badge>
+                      <Badge variant="secondary">{result.data.responseTimeMs} ms</Badge>
+                      <Badge variant="secondary">
                         {analysis.fixes.filter((f) => f.severity === "critical").length} critical
-                      </Pill>
+                      </Badge>
                       {result.data.spaTrap ? (
-                        <Pill tone="danger">Blank without JavaScript</Pill>
+                        <Badge variant="destructive">Blank without JavaScript</Badge>
                       ) : null}
                     </div>
                     <div className="mt-5 flex justify-center sm:justify-start">
@@ -434,7 +441,7 @@ function Index() {
 
                 {result.data.spaTrap ? (
                   <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-5 backdrop-blur">
-                    <h2 className="font-display text-lg font-bold text-destructive">
+                    <h2 className="font-display text-lg font-bold text-destructive-strong">
                       Heads up: your page is empty until JavaScript runs
                     </h2>
                     <p className="mt-1 text-sm text-muted-foreground">
@@ -477,25 +484,5 @@ function Index() {
       </main>
       <SiteFooter />
     </MotionConfig>
-  );
-}
-
-function Pill({
-  children,
-  tone = "default",
-}: {
-  children: React.ReactNode;
-  tone?: "default" | "danger";
-}) {
-  return (
-    <span
-      className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
-        tone === "danger"
-          ? "border-destructive/30 bg-destructive/10 text-destructive"
-          : "border-border bg-secondary/70 text-secondary-foreground"
-      }`}
-    >
-      {children}
-    </span>
   );
 }
