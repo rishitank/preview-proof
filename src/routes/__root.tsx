@@ -38,9 +38,9 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
   const router = useRouter();
   useEffect(() => {
+    console.error(error);
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
 
@@ -81,7 +81,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { name: "color-scheme", content: "light dark" },
-      { name: "theme-color", content: "#f7f5ee" },
+      { name: "theme-color", media: "(prefers-color-scheme: light)", content: "#fcfaf1" },
+      { name: "theme-color", media: "(prefers-color-scheme: dark)", content: "#081619" },
       { title: "PreviewProof" },
       {
         name: "description",

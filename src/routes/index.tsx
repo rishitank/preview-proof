@@ -28,7 +28,7 @@ import { ResultActions } from "@/components/ResultActions";
 import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import { loadRecent, saveRecent, type RecentCheck } from "@/lib/recent";
 
-const TITLE = "PreviewProof — see how your app looks when people share it";
+const TITLE = "PreviewProof: see how your app looks when people share it";
 const DESCRIPTION =
   "Paste a public URL and see the exact Google, X, LinkedIn, Slack and WhatsApp previews your app produces today, what's broken, and copy-paste fixes.";
 
@@ -141,6 +141,7 @@ function Index() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [recent, setRecent] = useState<RecentCheck[]>([]);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const autoRan = useRef(false);
   const run = useServerFn(auditUrl);
 
   const mutation = useMutation<AuditResponse, Error, string>({
@@ -154,6 +155,8 @@ function Index() {
     const v = value.trim();
     if (!v || mutation.isPending) return;
     if (inputRef.current && inputRef.current.value !== v) inputRef.current.value = v;
+    // Mark the URL as handled so the ?url= effect below doesn't run the same check again.
+    autoRan.current = true;
     void navigate({ search: { url: v }, replace: true });
     mutation.mutate(v);
   };
@@ -167,8 +170,7 @@ function Index() {
   // Recent checks live in this browser only, so load them after hydration.
   useEffect(() => setRecent(loadRecent()), []);
 
-  // A shared report link (?url=...) runs its audit on arrival.
-  const autoRan = useRef(false);
+  // A shared report link (?url=...) runs its audit on arrival, once.
   useEffect(() => {
     if (autoRan.current || !search.url) return;
     autoRan.current = true;
@@ -186,8 +188,10 @@ function Index() {
   // Move focus to the outcome so keyboard and screen-reader users land on it.
   useEffect(() => {
     if (mutation.isSuccess || mutation.isError) resultsRef.current?.focus({ preventScroll: true });
-    if (mutation.isSuccess || mutation.isError)
-      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (mutation.isSuccess || mutation.isError) {
+      const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      resultsRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    }
   }, [mutation.isSuccess, mutation.isError, mutation.submittedAt]);
 
   const verdict =
@@ -235,8 +239,8 @@ function Index() {
             transition={{ duration: 0.6, delay: 0.05 }}
             className="mx-auto mt-4 max-w-xl text-pretty text-base text-muted-foreground sm:text-lg"
           >
-            Paste a public URL. We fetch it exactly like a sharing bot does, with no JavaScript,
-            then show you the real previews and how to fix what's missing.
+            Paste a public URL. We fetch it the way sharing bots do, with no JavaScript, then show
+            you the previews your tags produce and how to fix what's missing.
           </motion.p>
 
           <motion.form
@@ -296,9 +300,10 @@ function Index() {
                       key={r.url}
                       type="button"
                       onClick={() => check(r.url)}
-                      className="rounded-full border border-border bg-surface/60 px-2.5 py-1 font-medium text-foreground transition-colors hover:bg-secondary"
+                      title={r.url}
+                      className="inline-flex max-w-[16rem] items-center gap-1 rounded-full border border-border bg-surface/60 px-2.5 py-1 font-medium text-foreground transition-colors hover:bg-secondary"
                     >
-                      {displayHost(r.url)}{" "}
+                      <span className="truncate">{displayHost(r.url)}</span>
                       <span className="text-muted-foreground">· {r.score}</span>
                     </button>
                   ))}
@@ -320,7 +325,8 @@ function Index() {
               )}
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              Public pages only. Nothing is stored.
+              Public pages only. We don't keep the pages you check; recent checks stay in your
+              browser.
             </p>
           </motion.form>
         </section>
@@ -328,10 +334,21 @@ function Index() {
         <div
           ref={resultsRef}
           tabIndex={-1}
-          aria-live="polite"
           aria-busy={mutation.isPending}
           className="mx-auto max-w-5xl scroll-mt-24 px-4 pb-16 outline-none"
         >
+          {/* A short announcement for screen readers, instead of reading the whole report aloud. */}
+          <p role="status" className="sr-only">
+            {mutation.isPending
+              ? "Checking the link."
+              : result?.ok && analysis
+                ? `Check finished. Score ${analysis.score} out of 100. ${analysis.fixes.length} things to fix.`
+                : result && !result.ok
+                  ? "We couldn't check that link."
+                  : mutation.isError
+                    ? "Something went wrong. Please try again."
+                    : ""}
+          </p>
           {/* Enter-only animations: never gate a result on an exit animation finishing. */}
           <>
             {mutation.isPending ? <LoadingPanel key="loading" /> : null}
@@ -430,7 +447,8 @@ function Index() {
                     How your link looks today
                   </h2>
                   <p className="mb-4 mt-1 text-sm text-muted-foreground">
-                    Each card uses your real tags and falls back exactly the way that platform does.
+                    Each card is built from your real tags and the fallbacks each platform is known
+                    to use. Platforms tweak their layouts, so treat these as close previews.
                   </p>
                   <PreviewCards data={result.data} />
                 </section>
@@ -448,7 +466,10 @@ function Index() {
             ) : null}
           </>
 
-          {idle ? <Landing /> : null}
+          {/* Always rendered, so the header's "How it works" links work after a check too. */}
+          <div className={idle ? undefined : "mt-20"}>
+            <Landing />
+          </div>
         </div>
       </main>
       <SiteFooter />

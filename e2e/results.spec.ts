@@ -65,9 +65,7 @@ test.describe("Results", () => {
     await expect(page.getByText(/Score:/)).toHaveCount(0);
   });
 
-  test("a public name that resolves to a private address is refused (DNS rebinding)", async ({
-    page,
-  }) => {
+  test("a public name that resolves to a private address is refused", async ({ page }) => {
     await audit(page, "https://rebind.example/");
     await expect(page.getByText(/resolves to a private or local machine/)).toBeVisible();
   });
@@ -123,6 +121,47 @@ test.describe("Results", () => {
     await expect(chip).toBeVisible();
     await chip.click();
     await expect(page.getByText("Score: 100 out of 100")).toBeAttached();
+  });
+
+  test("one check makes exactly one server call, from the form and from a shared link", async ({
+    page,
+  }) => {
+    const calls: string[] = [];
+    page.on("request", (r) => {
+      if (r.method() === "POST") calls.push(r.url());
+    });
+    await audit(page, "https://good.example/");
+    await expect(page.getByText("Score: 100 out of 100")).toBeAttached();
+    await page.waitForTimeout(500);
+    expect(calls).toHaveLength(1);
+
+    calls.length = 0;
+    await page.goto("/?url=" + encodeURIComponent("https://spa.example/"));
+    await expect(page.getByRole("heading", { name: "What to fix, in order" })).toBeVisible();
+    await page.waitForTimeout(500);
+    expect(calls).toHaveLength(1);
+  });
+
+  test("header links still reach their sections after a check", async ({ page }) => {
+    await audit(page, "https://good.example/");
+    await expect(page.getByText("Score: 100 out of 100")).toBeAttached();
+    await expect(page.getByRole("heading", { name: "How it works" })).toBeAttached();
+    await expect(page.getByRole("heading", { name: "What we check" })).toBeAttached();
+  });
+
+  test("a very long URL gets a clear message", async ({ page }) => {
+    await audit(page, "https://good.example/?q=" + "a".repeat(2100));
+    await expect(page.getByText(/too long to check/)).toBeVisible();
+  });
+
+  test("warns that WhatsApp may drop a large preview image, readably in dark mode", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => localStorage.setItem("previewproof:theme", "dark"));
+    await audit(page, "https://heavy.example/");
+    await expect(page.getByText(/WhatsApp often skips images/)).toBeVisible();
+    await page.waitForTimeout(800);
+    await expectNoSeriousA11yIssues(page);
   });
 
   for (const theme of ["light", "dark"] as const) {
