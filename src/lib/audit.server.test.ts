@@ -270,6 +270,52 @@ describe("runAudit: failures, limits and content types", () => {
     await expectError(p, "timeout");
   });
 
+  it("still times out at 8 seconds when the platform fetch ignores the abort signal", async () => {
+    vi.useFakeTimers();
+    const net = fakeNet({
+      routes: { "https://deaf.example/": () => new Promise<Response>(() => {}) },
+    });
+    const p = runAudit("deaf.example", net.deps);
+    await vi.advanceTimersByTimeAsync(8001);
+    await expectError(p, "timeout", /8 seconds/);
+  });
+
+  it("still times out when the DNS lookup ignores the abort signal", async () => {
+    vi.useFakeTimers();
+    const net = fakeNet({ routes: {} });
+    net.deps.resolve = () => new Promise(() => {});
+    const p = runAudit("slowdns.example", net.deps);
+    await vi.advanceTimersByTimeAsync(8001);
+    await expectError(p, "timeout");
+  });
+
+  it("audits what arrived when the body stalls after a complete <head>", async () => {
+    vi.useFakeTimers();
+    const net = fakeNet({
+      routes: {
+        "https://stall.example/": () =>
+          new Response(
+            new ReadableStream({
+              start(c) {
+                c.enqueue(
+                  new TextEncoder().encode(
+                    "<html><head><title>Head arrived</title></head><body><h1>x",
+                  ),
+                );
+              }, // never closes, and ignores abort
+            }),
+            { headers: { "content-type": "text/html" } },
+          ),
+      },
+    });
+    const p = runAudit("stall.example", net.deps);
+    await vi.advanceTimersByTimeAsync(8001);
+    const r = await p;
+    if (!r.ok) throw new Error(r.error.message);
+    expect(r.data.title).toBe("Head arrived");
+    expect(r.data.truncated).toBe(true);
+  });
+
   it("reports a refused connection as unreachable", async () => {
     const net = fakeNet({
       routes: {

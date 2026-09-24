@@ -66,7 +66,7 @@ describe("parseHtml", () => {
       expect(d.title).toBeNull();
       expect(d.ogImage).toBeNull();
       expect(d.h1Count).toBe(0);
-      expect(d.emptyRootDiv).toBe(true);
+      expect(d.emptyRootDiv).toBe(false); // no script bundle, so not a JS shell
     }
   });
 
@@ -144,6 +144,30 @@ describe("parseHtml", () => {
     );
     expect(d.h1Count).toBe(2);
     expect(d.favicon).toBe("https://app.example.com/apple.png");
+  });
+});
+
+describe("client-rendered shell detection", () => {
+  it("does not treat a short static page as a JavaScript shell", () => {
+    const exampleDotCom = `<!doctype html><html><head><title>Example Domain</title></head><body><div><h1>Example Domain</h1><p>This domain is for use in documentation examples.</p></div></body></html>`;
+    expect(parseHtml(exampleDotCom, BASE).emptyRootDiv).toBe(false);
+  });
+
+  it.each([
+    `<div id="root"></div><script type="module" src="/src/main.tsx"></script>`,
+    `<div id="app">  </div><script src="/assets/index-abc.js"></script>`,
+    `<div id=__next></div><script src="/_next/static/chunks/main.js" defer></script>`,
+    `<script type="module" crossorigin src="/assets/app.js"></script>`,
+  ])("detects a shell: %s", (body) => {
+    expect(
+      parseHtml(`<html><head><title>x</title></head><body>${body}</body></html>`, BASE)
+        .emptyRootDiv,
+    ).toBe(true);
+  });
+
+  it("does not flag a server-rendered app that also ships a bundle", () => {
+    const ssr = `<html><head></head><body><div id="root"><main><h1>Pricing</h1><p>${"Real text. ".repeat(30)}</p></main></div><script type="module" src="/a.js"></script></body></html>`;
+    expect(parseHtml(ssr, BASE).emptyRootDiv).toBe(false);
   });
 });
 
