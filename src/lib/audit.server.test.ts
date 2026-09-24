@@ -163,7 +163,7 @@ describe("runAudit: redirects", () => {
     expect(net.log.map((l) => l.url)).toEqual(["https://acme.example/"]);
   });
 
-  it("blocks a redirect to a public-looking name that resolves privately (DNS rebinding)", async () => {
+  it("blocks a redirect to a public-looking name that resolves to a private address", async () => {
     const net = fakeNet({
       dns: { "rebind.attacker.example": ["10.0.0.7"] },
       routes: { "https://acme.example/": () => redirect("https://rebind.attacker.example/") },
@@ -325,6 +325,47 @@ describe("runAudit: failures, limits and content types", () => {
       },
     });
     await expectError(runAudit("down.example", net.deps), "fetch_failed");
+  });
+
+  it("measures server response time without counting our own DNS checks", async () => {
+    let clock = 0;
+    const deps: Deps = {
+      now: () => clock,
+      resolve: async () => {
+        clock += 5000; // a slow resolver must not make the site look slow
+        return ["93.184.216.34"];
+      },
+      fetch: (async (input: RequestInfo | URL) => {
+        clock += 120;
+        return String(input) === "https://acme.example/"
+          ? html(GOOD_PAGE)
+          : new Response(null, { status: 404 });
+      }) as typeof fetch,
+    };
+    const r = await runAudit("acme.example", deps);
+    if (!r.ok) throw new Error(r.error.message);
+    expect(r.data.responseTimeMs).toBe(120);
+  });
+
+  it("finishes at the 2 MB cap even if cancelling the stream never settles", async () => {
+    const chunk = new TextEncoder().encode(
+      `<html><head><title>Huge</title></head><body>${"x".repeat(3 * 1024 * 1024)}`,
+    );
+    const stuck = () =>
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(c) {
+            c.enqueue(chunk);
+          },
+          cancel: () => new Promise<void>(() => {}),
+        }),
+        { headers: { "content-type": "text/html" } },
+      );
+    const net = fakeNet({ routes: { "https://stuck.example/": stuck } });
+    const r = await runAudit("stuck.example", net.deps);
+    if (!r.ok) throw new Error(r.error.message);
+    expect(r.data.title).toBe("Huge");
+    expect(r.data.truncated).toBe(true);
   });
 
   it("caps the download at 2 MB but still parses the head", async () => {

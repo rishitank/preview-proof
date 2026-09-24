@@ -58,9 +58,19 @@ type FetchFailure = {
   code: "blocked_host" | "blocked_port" | "invalid_url" | "fetch_failed" | "timeout";
   message: string;
 };
-type SafeFetchResult = { ok: true; res: Response; finalUrl: string; hops: number } | FetchFailure;
+type SafeFetchResult =
+  | {
+      ok: true;
+      res: Response;
+      finalUrl: string;
+      hops: number;
+      /** Time spent waiting for response headers across all hops, excluding our own DNS checks. */
+      waitMs: number;
+    }
+  | FetchFailure;
 
 const UNREACHABLE = "We couldn't reach that page. Check the address is public and live.";
+const TIMEOUT_MESSAGE = `The page took longer than ${PAGE_TIMEOUT_MS / 1000} seconds to answer. Sharing bots give up too.`;
 const RESOLVES_PRIVATE =
   "That address resolves to a private or local machine, so nobody on the internet could load it.";
 
@@ -113,6 +123,7 @@ export async function safeFetch(
   deps: Deps,
 ): Promise<SafeFetchResult> {
   let current = start;
+  let waitMs = 0;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     const host = current.hostname.replace(/^\[|\]$/g, "");
     let addrs: string[] | null;
@@ -129,6 +140,7 @@ export async function safeFetch(
       return { ok: false, code: "blocked_host", message: RESOLVES_PRIVATE };
 
     let res: Response;
+    const sentAt = deps.now();
     try {
       res = await raceAbort(
         deps.fetch(current.toString(), { ...init, redirect: "manual", signal }),
@@ -140,6 +152,7 @@ export async function safeFetch(
         : { ok: false, code: "fetch_failed", message: UNREACHABLE };
     }
 
+    waitMs += deps.now() - sentAt;
     const location = res.headers.get("location");
     if (res.status >= 300 && res.status < 400 && location) {
       discard(res);
@@ -159,7 +172,7 @@ export async function safeFetch(
       current = v.url;
       continue;
     }
-    return { ok: true, res, finalUrl: current.toString(), hops: hop };
+    return { ok: true, res, finalUrl: current.toString(), hops: hop, waitMs };
   }
   return {
     ok: false,
@@ -200,11 +213,8 @@ export async function readCapped(
       chunks.push(value.subarray(0, room));
       total += room;
       truncated = true;
-      try {
-        await reader.cancel();
-      } catch {
-        /* ignore */
-      }
+      // Never await a cancel: a stuck stream must not hold the audit past its deadline.
+      reader.cancel().catch(() => {});
       break;
     }
     chunks.push(value);
@@ -281,7 +291,6 @@ export async function runAudit(rawUrl: string, deps: Deps = defaultDeps()): Prom
   const target = validated.url;
 
   const t = withTimeout(PAGE_TIMEOUT_MS);
-  const started = deps.now();
   let fetched: SafeFetchResult;
   let body: { bytes: Uint8Array; truncated: boolean; timedOut: boolean };
   try {
@@ -305,7 +314,7 @@ export async function runAudit(rawUrl: string, deps: Deps = defaultDeps()): Prom
           fetched.code === "timeout"
             ? {
                 code: "timeout",
-                message: "The page took longer than 8 seconds to answer. Sharing bots give up too.",
+                message: TIMEOUT_MESSAGE,
               }
             : { code: fetched.code, message: fetched.message },
       };
@@ -324,7 +333,7 @@ export async function runAudit(rawUrl: string, deps: Deps = defaultDeps()): Prom
         ok: false,
         error: {
           code: "timeout",
-          message: "The page took longer than 8 seconds to answer. Sharing bots give up too.",
+          message: TIMEOUT_MESSAGE,
         },
       };
     }
@@ -333,7 +342,7 @@ export async function runAudit(rawUrl: string, deps: Deps = defaultDeps()): Prom
   }
 
   const { res, finalUrl } = fetched;
-  const responseTimeMs = deps.now() - started;
+  const responseTimeMs = fetched.waitMs;
   const contentType = res.headers.get("content-type");
   const html = decodeBody(body.bytes, contentType);
 
