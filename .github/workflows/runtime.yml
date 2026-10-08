@@ -26,7 +26,7 @@ permissions:
 jobs:
   runtime:
     name: runtime
-    uses: rishitank/.github/.github/workflows/runtime-gate.yml@80403813373bbcadc5e3d90158fbf81f80613cd6
+    uses: rishitank/.github/.github/workflows/runtime-gate.yml@8e8a1977309ac958bafd85825c7cd800be8c8ac8
     permissions:
       contents: read
       actions: read
