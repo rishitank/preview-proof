@@ -44,8 +44,9 @@ jobs:
       port: 4173
       # PREVIEWPROOF_FAKE_NET=1 is the e2e suite's fake internet. It is only
       # honoured by `vite dev` builds (import.meta.env.DEV); the production
-      # bundle served here ignores it. The crawler never submits the URL form,
-      # so the crawl itself makes no outbound audit requests either way.
+      # bundle served here ignores it. The crawler fills the URL form with
+      # https://example.com and submits it, so the crawl runs one real audit:
+      # the worker fetches that URL live from the runner.
       env: |
         PREVIEWPROOF_FAKE_NET=1
         WRANGLER_SEND_METRICS=false
