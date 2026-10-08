@@ -51,7 +51,7 @@ jobs:
 
   lighthouse:
     # Shared Lighthouse CI workflow; budgets live in lighthouserc.json and block the build.
-    uses: rishitank/.github/.github/workflows/lighthouse-ci.yml@main
+    uses: rishitank/.github/.github/workflows/lighthouse-ci.yml@v1
     permissions:
       contents: read
       pull-requests: write
