@@ -26,7 +26,7 @@ permissions:
 jobs:
   runtime:
     name: runtime
-    uses: rishitank/.github/.github/workflows/runtime-gate.yml@f1ad74760767f0f1c488d526fb28d0617917a626
+    uses: rishitank/.github/.github/workflows/runtime-gate.yml@f5b19aff6eac60563a34e7a2ddc057e75766235c
     permissions:
       contents: read
       actions: read
@@ -62,7 +62,7 @@ jobs:
   flows:
     needs: runtime
     if: ${{ !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
-    uses: rishitank/.github/.github/workflows/runtime-gate-flows.yml@f1ad74760767f0f1c488d526fb28d0617917a626
+    uses: rishitank/.github/.github/workflows/runtime-gate-flows.yml@f5b19aff6eac60563a34e7a2ddc057e75766235c
     permissions:
       contents: write
       pull-requests: write
