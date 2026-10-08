@@ -1,4 +1,4 @@
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import {
   Bot,
   FileCode2,
@@ -51,16 +51,12 @@ export function Landing() {
   return (
     <div className="space-y-20 pt-6">
       <section id="how-it-works" aria-labelledby="how-heading" className="scroll-mt-24">
-        <motion.h2
-          {...reveal}
-          id="how-heading"
-          className="text-center text-3xl font-bold sm:text-4xl"
-        >
+        <m.h2 {...reveal} id="how-heading" className="text-center text-3xl font-bold sm:text-4xl">
           How it works
-        </motion.h2>
+        </m.h2>
         <div className="mt-8 grid gap-4 md:grid-cols-3">
           {STEPS.map(({ Icon, title, body }, i) => (
-            <motion.div
+            <m.div
               key={title}
               {...reveal}
               transition={{ duration: 0.5, delay: i * 0.08 }}
@@ -71,25 +67,25 @@ export function Landing() {
               </span>
               <h3 className="mt-4 text-lg font-bold">{title}</h3>
               <p className="mt-1 text-sm text-muted-foreground">{body}</p>
-            </motion.div>
+            </m.div>
           ))}
         </div>
       </section>
 
       <section id="what-we-check" aria-labelledby="checks-heading" className="scroll-mt-24">
-        <motion.h2
+        <m.h2
           {...reveal}
           id="checks-heading"
           className="text-center text-3xl font-bold sm:text-4xl"
         >
           What we check
-        </motion.h2>
-        <motion.p {...reveal} className="mx-auto mt-2 max-w-xl text-center text-muted-foreground">
+        </m.h2>
+        <m.p {...reveal} className="mx-auto mt-2 max-w-xl text-center text-muted-foreground">
           The things that quietly turn a share into a bare blue link.
-        </motion.p>
+        </m.p>
         <ul className="mt-8 grid gap-3 sm:grid-cols-2">
           {CHECKS.map(({ Icon, label }, i) => (
-            <motion.li
+            <m.li
               key={label}
               {...reveal}
               transition={{ duration: 0.4, delay: (i % 2) * 0.06 }}
@@ -97,7 +93,7 @@ export function Landing() {
             >
               <Icon className="size-5 shrink-0 text-primary" aria-hidden />
               <span className="text-sm font-medium">{label}</span>
-            </motion.li>
+            </m.li>
           ))}
         </ul>
       </section>
