@@ -58,8 +58,8 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A -- . ':(exclude)node_modules'
-          git reset -q -- .github/workflows/deps-refresh-once.yml || true
+          git add -A -- .
+          git reset -q -- node_modules .github/workflows/deps-refresh-once.yml || true
           if git diff --cached --quiet; then echo "Nothing changed."; exit 0; fi
           git --no-pager diff --cached --stat
           git commit -m "chore(deps): refresh lockfile to pick up patched versions" -m "Ran on a runner by the one-shot deps-refresh-once workflow: rm bun.lock && bun install --lockfile-only"
