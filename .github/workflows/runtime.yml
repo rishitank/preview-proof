@@ -26,7 +26,7 @@ permissions:
 jobs:
   runtime:
     name: runtime
-    uses: rishitank/.github/.github/workflows/runtime-gate.yml@8e8a1977309ac958bafd85825c7cd800be8c8ac8
+    uses: rishitank/.github/.github/workflows/runtime-gate.yml@f1ad74760767f0f1c488d526fb28d0617917a626
     permissions:
       contents: read
       actions: read
@@ -50,5 +50,22 @@ jobs:
       env: |
         PREVIEWPROOF_FAKE_NET=1
         WRANGLER_SEND_METRICS=false
+      # No login-* inputs: the app is a single public page (paste a URL, get a
+      # preview audit) with no accounts, sessions or sign-in.
     secrets:
       gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
+
+  # Weekly/manual runs only: saves the paths the explorer completed to
+  # .github/runtime-gate-flows.json through a reviewed PR; the runtime job then
+  # replays them on every PR. ci.yml has no workflow_dispatch trigger, so only
+  # this workflow is started on the flows branch.
+  flows:
+    needs: runtime
+    if: ${{ !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+    uses: rishitank/.github/.github/workflows/runtime-gate-flows.yml@f1ad74760767f0f1c488d526fb28d0617917a626
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    with:
+      ci-workflows: runtime.yml
