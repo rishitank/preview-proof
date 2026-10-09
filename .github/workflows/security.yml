@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   security:
-    uses: rishitank/.github/.github/workflows/security.yml@v1
+    uses: rishitank/.github/.github/workflows/security.yml@5c644123ed93759cf78aa32d9d119150910e113e # v1
     with:
       # osv-scanner (always on) reads bun.lock directly. `ecosystem` only picks
       # the native audit, and npm audit cannot read bun.lock (it needs
