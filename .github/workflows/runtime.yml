@@ -1,0 +1,71 @@
+# Runtime gate: boots the app and uses it in a real browser before a change
+# (a Renovate update included) can merge. Fails on runtime errors: uncaught
+# exceptions, console errors, React hydration errors, failed same-origin
+# requests, 4xx/5xx, blank pages, crash screens. Advisory on top: screenshot
+# diff against the last main run, and an AI explorer (Gemini free
+# tier, GEMINI_API_KEY secret) that uses the app like a person for major or
+# framework updates, the `ai-explore` label, the weekly schedule and manual
+# runs. See docs/runtime-gate.md in rishitank/.github.
+name: runtime
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "53 4 * * 5"
+  workflow_dispatch:
+
+concurrency:
+  group: runtime-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  runtime:
+    name: runtime
+    uses: rishitank/.github/.github/workflows/runtime-gate.yml@f5b19aff6eac60563a34e7a2ddc057e75766235c
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+    with:
+      # No Dockerfile: production is a Cloudflare Worker (nitro
+      # cloudflare-module). Build with bun exactly as ci.yml does, then serve
+      # the built worker with `wrangler dev` on 4173, the same command
+      # lighthouserc.json uses, so the gate tests the bundle that deploys.
+      mode: command
+      setup: bun
+      package-manager: bun
+      build: bun run build
+      start: npx --yes wrangler@4 dev --config .output/server/wrangler.json --ip 127.0.0.1 --port 4173
+      port: 4173
+      # PREVIEWPROOF_FAKE_NET=1 is the e2e suite's fake internet. It is only
+      # honoured by `vite dev` builds (import.meta.env.DEV); the production
+      # bundle served here ignores it. The crawler fills the URL form with
+      # https://example.com and submits it, so the crawl runs one real audit:
+      # the worker fetches that URL live from the runner.
+      env: |
+        PREVIEWPROOF_FAKE_NET=1
+        WRANGLER_SEND_METRICS=false
+      # No login-* inputs: the app is a single public page (paste a URL, get a
+      # preview audit) with no accounts, sessions or sign-in.
+    secrets:
+      gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
+
+  # Weekly/manual runs only: saves the paths the explorer completed to
+  # .github/runtime-gate-flows.json through a reviewed PR; the runtime job then
+  # replays them on every PR. ci.yml has no workflow_dispatch trigger, so only
+  # this workflow is started on the flows branch.
+  flows:
+    needs: runtime
+    if: ${{ !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+    uses: rishitank/.github/.github/workflows/runtime-gate-flows.yml@f5b19aff6eac60563a34e7a2ddc057e75766235c
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    with:
+      ci-workflows: runtime.yml

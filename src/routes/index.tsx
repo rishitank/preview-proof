@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AnimatePresence, MotionConfig, motion } from "motion/react";
+import { AnimatePresence, MotionConfig, m } from "motion/react";
 import {
   ArrowRight,
   Clock,
@@ -16,19 +16,22 @@ import {
 } from "lucide-react";
 
 import { auditUrl } from "@/lib/audit.functions";
-import { analyse } from "@/lib/analysis";
+import type { Analysis } from "@/lib/analysis";
 import type { AuditResponse } from "@/lib/audit-types";
-import { PreviewCards } from "@/components/PreviewCards";
 import { OG_IMAGE_URL, SITE_URL } from "@/lib/site";
-import { FixList } from "@/components/FixList";
-import { ScoreRing } from "@/components/ScoreRing";
 import { Backdrop } from "@/components/Backdrop";
 import { Landing } from "@/components/Landing";
-import { ResultActions } from "@/components/ResultActions";
 import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import { loadRecent, saveRecent, type RecentCheck } from "@/lib/recent";
-import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+
+// The report (score ring, previews, fixes, export actions) and the scoring code only matter once
+// a check has run, so they live in their own chunks. A check starts fetching both alongside the
+// audit request, so they are normally in place before the result arrives.
+const loadAuditReport = () => import("@/components/AuditReport");
+const AuditReport = lazy(() => loadAuditReport().then((mod) => ({ default: mod.AuditReport })));
+
+type Checked = { response: AuditResponse; analysis: Analysis | null };
 
 const TITLE = "PreviewProof: see how your app looks when people share it";
 const DESCRIPTION =
@@ -108,11 +111,11 @@ function LoadingPanel() {
     return () => clearInterval(t);
   }, []);
   return (
-    <motion.div {...fadeUp} className="glass rounded-2xl p-6">
+    <m.div {...fadeUp} className="glass rounded-2xl p-6">
       <div className="flex items-center gap-3">
         <Loader2 className="size-5 animate-spin text-primary" aria-hidden />
         <AnimatePresence mode="wait">
-          <motion.p
+          <m.p
             key={step}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
@@ -120,7 +123,7 @@ function LoadingPanel() {
             className="font-display font-semibold"
           >
             {LOADING_STEPS[step]}
-          </motion.p>
+          </m.p>
         </AnimatePresence>
       </div>
       <div className="mt-6 grid gap-4 md:grid-cols-2" aria-hidden>
@@ -132,7 +135,7 @@ function LoadingPanel() {
           </div>
         ))}
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -149,12 +152,19 @@ function Index() {
   const autoRan = useRef(false);
   const run = useServerFn(auditUrl);
 
-  const mutation = useMutation<AuditResponse, Error, string>({
-    mutationFn: (value: string) => run({ data: { url: value } }),
+  const mutation = useMutation<Checked, Error, string>({
+    mutationFn: async (value: string) => {
+      const [response, { analyse }] = await Promise.all([
+        run({ data: { url: value } }),
+        import("@/lib/analysis"),
+        loadAuditReport(),
+      ]);
+      return { response, analysis: response.ok ? analyse(response.data) : null };
+    },
   });
 
-  const result = mutation.data;
-  const analysis = useMemo(() => (result?.ok ? analyse(result.data) : null), [result]);
+  const result = mutation.data?.response;
+  const analysis = mutation.data?.analysis ?? null;
 
   const check = (value: string) => {
     const v = value.trim();
@@ -217,7 +227,7 @@ function Index() {
       <SiteHeader />
       <main className="min-h-screen">
         <section className="mx-auto max-w-3xl px-4 pb-10 pt-14 text-center sm:pt-20">
-          <motion.span
+          <m.span
             initial={{ y: 10 }}
             animate={{ y: 0 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
@@ -225,8 +235,8 @@ function Index() {
           >
             <Sparkles className="size-3.5 text-primary" aria-hidden />
             Built for apps that deserve to spread
-          </motion.span>
-          <motion.h1
+          </m.span>
+          <m.h1
             // Transform only: the headline is the LCP element, so it must be visible from first paint.
             initial={{ y: 14 }}
             animate={{ y: 0 }}
@@ -237,8 +247,8 @@ function Index() {
             <span className="block bg-gradient-brand bg-clip-text pb-1 text-transparent">
               the internet sees it
             </span>
-          </motion.h1>
-          <motion.p
+          </m.h1>
+          <m.p
             initial={{ y: 10 }}
             animate={{ y: 0 }}
             transition={{ duration: 0.6, delay: 0.05 }}
@@ -246,9 +256,9 @@ function Index() {
           >
             Paste a public URL. We fetch it the way sharing bots do, with no JavaScript, then show
             you the previews your tags produce and how to fix what's missing.
-          </motion.p>
+          </m.p>
 
-          <motion.form
+          <m.form
             onSubmit={submit}
             initial={{ y: 14 }}
             animate={{ y: 0 }}
@@ -277,7 +287,7 @@ function Index() {
                   className="min-w-0 flex-1 bg-transparent py-3 text-base outline-none placeholder:text-muted-foreground"
                 />
               </div>
-              <motion.button
+              <m.button
                 type="submit"
                 disabled={mutation.isPending}
                 whileHover={{ scale: 1.02 }}
@@ -293,7 +303,7 @@ function Index() {
                     Check my app <ArrowRight aria-hidden />
                   </>
                 )}
-              </motion.button>
+              </m.button>
             </div>
             <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
               {recent.length ? (
@@ -336,7 +346,7 @@ function Index() {
               Public pages only. We don't keep the pages you check; recent checks stay in your
               browser.
             </p>
-          </motion.form>
+          </m.form>
         </section>
 
         <div
@@ -362,7 +372,7 @@ function Index() {
             {mutation.isPending ? <LoadingPanel key="loading" /> : null}
 
             {!mutation.isPending && mutation.isError ? (
-              <motion.div
+              <m.div
                 key="crash"
                 {...fadeUp}
                 className="glass rounded-2xl border-destructive/40 p-6"
@@ -373,14 +383,14 @@ function Index() {
                 <p className="mt-1 text-sm text-muted-foreground">
                   We couldn't finish the check. Please try again in a moment.
                 </p>
-              </motion.div>
+              </m.div>
             ) : null}
 
             {!mutation.isPending && result && !result.ok
               ? (() => {
                   const Icon = ERROR_ICONS[result.error.code] ?? Link2Off;
                   return (
-                    <motion.div key="error" {...fadeUp} className="glass rounded-2xl p-6">
+                    <m.div key="error" {...fadeUp} className="glass rounded-2xl p-6">
                       <div className="flex items-start gap-3">
                         <Icon className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden />
                         <div>
@@ -403,76 +413,23 @@ function Index() {
                           </Button>
                         </div>
                       </div>
-                    </motion.div>
+                    </m.div>
                   );
                 })()
               : null}
 
             {!mutation.isPending && result?.ok && analysis ? (
-              <motion.div key={`result-${result.data.finalUrl}`} {...fadeUp} className="space-y-12">
-                <div className="glass flex flex-col items-center gap-6 rounded-2xl p-6 sm:flex-row sm:items-center">
-                  <ScoreRing score={analysis.score} />
-                  <div className="min-w-0 flex-1 text-center sm:text-left">
-                    <h2 className="font-display text-2xl font-bold">{verdict}</h2>
-                    <p className="mt-1 break-all text-sm text-muted-foreground">
-                      {result.data.finalUrl}
-                      {result.data.redirected ? " (after redirect)" : ""}
-                    </p>
-                    <div className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start">
-                      <Badge variant="secondary">HTTP {result.data.status}</Badge>
-                      <Badge variant="secondary">{result.data.responseTimeMs} ms</Badge>
-                      <Badge variant="secondary">
-                        {analysis.fixes.filter((f) => f.severity === "critical").length} critical
-                      </Badge>
-                      {result.data.spaTrap ? (
-                        <Badge variant="destructive">Blank without JavaScript</Badge>
-                      ) : null}
-                    </div>
-                    <div className="mt-5 flex justify-center sm:justify-start">
-                      <ResultActions
-                        data={result.data}
-                        analysis={analysis}
-                        busy={mutation.isPending}
-                        onRecheck={() => check(result.data.requestedUrl)}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {result.data.spaTrap ? (
-                  <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-5 backdrop-blur">
-                    <h2 className="font-display text-lg font-bold text-destructive-strong">
-                      Heads up: your page is empty until JavaScript runs
-                    </h2>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {result.data.builtWithLovable
-                        ? "This looks like an older Lovable app. Lovable pre-renders those for verified crawlers, so Google and the big networks may be fine, but every other unfurler, SEO tool and AI agent sees an empty page. Upgrading the project to server-side rendering fixes it for everyone."
-                        : "The raw HTML we received is basically an empty container. X, LinkedIn, Slack and WhatsApp don't run JavaScript, so they see nothing, which is why your shares look blank. The fixes below put those tags in the HTML itself."}
-                    </p>
-                  </div>
-                ) : null}
-
-                <section aria-labelledby="previews-heading">
-                  <h2 id="previews-heading" className="font-display text-2xl font-bold">
-                    How your link looks today
-                  </h2>
-                  <p className="mb-4 mt-1 text-sm text-muted-foreground">
-                    Each card is built from your real tags and the fallbacks each platform is known
-                    to use. Platforms tweak their layouts, so treat these as close previews.
-                  </p>
-                  <PreviewCards data={result.data} />
-                </section>
-
-                <section aria-labelledby="fixes-heading">
-                  <h2 id="fixes-heading" className="font-display text-2xl font-bold">
-                    What to fix, in order
-                  </h2>
-                  <p className="mb-4 mt-1 text-sm text-muted-foreground">
-                    Copy the HTML, or copy the prompt straight into your own Lovable project.
-                  </p>
-                  <FixList fixes={analysis.fixes} passed={analysis.passed} />
-                </section>
-              </motion.div>
+              <m.div key={`result-${result.data.finalUrl}`} {...fadeUp} className="space-y-12">
+                <Suspense fallback={null}>
+                  <AuditReport
+                    data={result.data}
+                    analysis={analysis}
+                    verdict={verdict}
+                    busy={mutation.isPending}
+                    onRecheck={() => check(result.data.requestedUrl)}
+                  />
+                </Suspense>
+              </m.div>
             ) : null}
           </>
 

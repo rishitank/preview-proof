@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
+import { animate, m, useMotionValue, useReducedMotion, useTransform } from "motion/react";
 
 export function ScoreRing({ score }: { score: number }) {
   const clamped = Math.max(0, Math.min(100, score));
@@ -38,7 +38,7 @@ export function ScoreRing({ score }: { score: number }) {
           stroke="var(--color-border)"
           strokeWidth="10"
         />
-        <motion.circle
+        <m.circle
           cx="60"
           cy="60"
           r={radius}
@@ -51,9 +51,9 @@ export function ScoreRing({ score }: { score: number }) {
         />
       </svg>
       <div aria-hidden className="absolute inset-0 flex flex-col items-center justify-center">
-        <motion.span className="font-display text-4xl font-bold leading-none tabular-nums">
+        <m.span className="font-display text-4xl font-bold leading-none tabular-nums">
           {shown}
-        </motion.span>
+        </m.span>
         <span className="mt-1 text-[11px] uppercase tracking-widest text-muted-foreground">
           out of 100
         </span>

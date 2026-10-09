@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { Globe, ImageOff, MessageCircle, Link2 } from "lucide-react";
 import type { AuditData } from "@/lib/audit-types";
 
@@ -334,7 +334,7 @@ function ChatBubble({ d }: { d: AuditData }) {
 
 export function PreviewCards({ data }: { data: AuditData }) {
   return (
-    <motion.div
+    <m.div
       className="grid items-start gap-4 md:grid-cols-2"
       initial="hidden"
       animate="show"
@@ -347,7 +347,7 @@ export function PreviewCards({ data }: { data: AuditData }) {
         <SlackUnfurl key="s" d={data} />,
         <ChatBubble key="c" d={data} />,
       ].map((cardEl, i) => (
-        <motion.div
+        <m.div
           key={i}
           className={i === 4 ? "md:col-span-2" : undefined}
           variants={{
@@ -356,8 +356,8 @@ export function PreviewCards({ data }: { data: AuditData }) {
           }}
         >
           {cardEl}
-        </motion.div>
+        </m.div>
       ))}
-    </motion.div>
+    </m.div>
   );
 }

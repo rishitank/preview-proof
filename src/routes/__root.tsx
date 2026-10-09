@@ -6,7 +6,9 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  type ErrorComponentProps,
 } from "@tanstack/react-router";
+import { LazyMotion, domAnimation } from "motion/react";
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
@@ -35,7 +37,9 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+// Router-provided props: `error` is whatever was thrown (newer TanStack Router types it as
+// `unknown`), and everything below already handles a non-Error value.
+function ErrorComponent({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
   useEffect(() => {
     console.error(error);
@@ -125,13 +129,20 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+// Components use Motion's slim `m.*` elements with only the domAnimation feature set (animate,
+// exit, variants, hover/tap/in-view gestures; no layout or drag), instead of `motion.*`, which
+// bundles every feature. `strict` makes a stray `motion.*` throw in development. The features are
+// passed synchronously on purpose: loading them async re-renders every animated element once they
+// arrive and starts the entrance animations late, which measured worse in Lighthouse.
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <LazyMotion features={domAnimation} strict>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <Outlet />
+      </LazyMotion>
     </QueryClientProvider>
   );
 }
